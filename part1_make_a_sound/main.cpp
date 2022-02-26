@@ -1,19 +1,24 @@
 #include <SDL.h>
-#include <SDL_mixer.h>
 #include <stdio.h>
+#include <assert.h>
 
 // Window Configuration
 #define WINDOW_WIDTH 360
 #define WINDOW_HEIGHT 640
 
 // Audio Configuration
-#define SAMPLE_RATE_HZ 44100
-#define SAMPLE_FORMAT AUDIO_S16SYS // Signed 16-bit samples, in system byte order
-#define NUM_SOUND_CHANNELS 2 // stereo
-#define SAMPLE_BUFFER_SIZE 1024 // smaller == lower latency, but too low will cause crackling
+#define SAMPLE_RATE_HZ 48000
+#define NUM_SOUND_CHANNELS 2
+// Signed 16-bit samples, in system byte order
+#define SAMPLE_FORMAT AUDIO_S16SYS
+// Smaller buffer == lower latency, but too low will cause crackling
+// For low-latency real-time audio, 512 samples should be good.
+// Assuming 44.1KHz, this will be (512 / 44100) == 11.61 ms of latency.
+#define SAMPLES_PER_BUFFER 512
 
-static SDL_Renderer* _renderer = nullptr;
-static SDL_Window* _window = nullptr;
+static SDL_Renderer* _renderer;
+static SDL_Window* _window;
+static SDL_AudioDeviceID _audioDevice;
 
 static void close(void) {
     SDL_Log("Closing");
@@ -23,8 +28,13 @@ static void close(void) {
     if (_window) {
         SDL_DestroyWindow(_window);
     }
-    Mix_Quit();
+    SDL_CloseAudioDevice(_audioDevice);
     SDL_Quit();
+}
+
+static void audioCallback(void* userdata, Uint8* stream, int len) {
+    assert(len >= 0);
+    memset(stream, 0, (size_t)len);
 }
 
 int main(int argc, char* argv[]) {
@@ -34,11 +44,33 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    // Initialize SDL2_mixer
-    if (0 != Mix_OpenAudio(SAMPLE_RATE_HZ, SAMPLE_FORMAT, NUM_SOUND_CHANNELS, SAMPLE_BUFFER_SIZE)) {
-        SDL_Log("Mix_OpenAudio failed, error: %s", Mix_GetError());
+    // Initialize Audio
+    SDL_AudioSpec desired = {};
+    desired.freq = SAMPLE_RATE_HZ;
+    desired.format = SAMPLE_FORMAT;
+    desired.channels = NUM_SOUND_CHANNELS;
+    desired.samples = SAMPLES_PER_BUFFER;
+    desired.callback = audioCallback;
+
+    SDL_AudioSpec actual = {};
+    _audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
+    if (_audioDevice <= 0) {
+        SDL_Log("Could not open audio device: %s", SDL_GetError());
         return -2;
     }
+    if (desired.format != actual.format) {
+        SDL_Log("Could not get desired audio format");
+        return -2;
+    }
+
+    SDL_Log("-------------------");
+    SDL_Log("sample rate: %d", actual.freq);
+    SDL_Log("channels:    %d", actual.channels);
+    SDL_Log("samples:     %d", actual.samples);
+    SDL_Log("size:        %d", actual.size);
+    SDL_Log("------------------");
+
+    SDL_PauseAudioDevice(_audioDevice, 0);
 
     // Create a window
     _window = SDL_CreateWindow(
@@ -65,18 +97,13 @@ int main(int argc, char* argv[]) {
     }
     SDL_RenderSetLogicalSize(_renderer, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    // Configure SDL_mixer
-    constexpr uint8_t volume = MIX_MAX_VOLUME / 2;
-    Mix_AllocateChannels(16);
-    Mix_VolumeMusic(volume);
-    Mix_Volume(-1 /* apply to all channels */, volume);
+    bool loopShouldStop = false;
+    SDL_Event event;
 
     // Main SDL Loop
-    bool loopShouldStop = false;
     SDL_Log("Starting main loop");
     while (!loopShouldStop) {
         // Check for events
-        SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 loopShouldStop = true;

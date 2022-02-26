@@ -35,13 +35,13 @@ If you want to know more, see SDL2 tutorials
 MacOS:
 
 ```sh
-brew install sdl2 sdl2_image sdl2_ttf sdl2_mixer
+brew install sdl2
 ```
 
 Ubuntu:
 
 ```sh
-sudo apt-get install libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev libsdl2-mixer-dev
+sudo apt-get install libsdl2-dev
 ```
 
 * CMake updates
