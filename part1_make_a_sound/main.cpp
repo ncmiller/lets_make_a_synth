@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <stdio.h>
+#include <math.h>
 #include <assert.h>
 
 // Window Configuration
@@ -11,10 +12,10 @@
 #define NUM_SOUND_CHANNELS 2
 // Signed 16-bit samples, in system byte order
 #define SAMPLE_FORMAT AUDIO_S16SYS
-// Smaller buffer == lower latency, but too low will cause crackling
-// For low-latency real-time audio, 512 samples should be good.
-// Assuming 44.1KHz, this will be (512 / 44100) == 11.61 ms of latency.
-#define SAMPLES_PER_BUFFER 512
+// Smaller buffer == lower latency, but too low can cause crackling.
+#define SAMPLES_PER_BUFFER 256 // (256 / 48000) = 5.333 ms latency
+// Max volume, scaling factor from 0.0 to 1.0
+#define VOLUME 0.025 // about -32 dB
 
 static SDL_Renderer* _renderer;
 static SDL_Window* _window;
@@ -33,8 +34,33 @@ static void close(void) {
 }
 
 static void audioCallback(void* userdata, Uint8* stream, int len) {
-    assert(len >= 0);
-    memset(stream, 0, (size_t)len);
+    constexpr double twoPi = 2.0 * M_PI;
+    constexpr double secondsPerSample = 1.0 / SAMPLE_RATE_HZ;
+
+    // Sine wave, A440 Hz
+    constexpr double freqHz = 440;
+    constexpr double periodS = 1.0 / freqHz;
+    // For s16, range is [-32768, 32767]
+    constexpr double maxAmp = 32767.0 * VOLUME;
+
+    static double t = 0.0;
+    while (len > 0) {
+        // Equation for a sine wave:
+        //    y(t) = A * sin(2 * PI * f * t + shift)
+        double y = maxAmp * sin(twoPi * freqHz * t);
+
+        int16_t* left = (int16_t*)(stream);
+        int16_t* right = (int16_t*)(stream + 2);
+        *left = (int16_t)y;
+        *right = (int16_t)y;
+
+        t += secondsPerSample;
+        if (t > periodS) {
+             t -= periodS;
+        }
+        stream += 4;
+        len -= 4;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -58,7 +84,7 @@ int main(int argc, char* argv[]) {
         SDL_Log("Could not open audio device: %s", SDL_GetError());
         return -2;
     }
-    if (desired.format != actual.format) {
+    if ((desired.format != actual.format) || (desired.samples != actual.samples)) {
         SDL_Log("Could not get desired audio format");
         return -2;
     }

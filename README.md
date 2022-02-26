@@ -1,12 +1,15 @@
 # Let's Make a Synth in C++!
 
-# Future
+This is a multi-part series about making a digital synthesizer in C++.
+
+[Part 1:  Making a Sound](part1_make_a_sound)
+
+# Future Parts
 
 ## Part 2 - Oscillators
 
 ### Square
 ### Saw
-### Sine
 ### Triangle
 ### Noise
 

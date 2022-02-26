@@ -56,3 +56,6 @@ sudo apt-get install libsdl2-dev
 * main.cpp: Create simple SDL2 window, initialize audio subsystem
 
 ## Generating a sine wave
+
+* Review equation for sine wave
+* Review callback specifics
