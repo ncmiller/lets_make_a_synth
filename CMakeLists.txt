@@ -13,15 +13,10 @@ find_package(SDL2_IMAGE REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 include_directories(
-    include
     ${SDL2_INCLUDE_DIR}
     ${SDL2_TTF_INCLUDE_DIR}
     ${SDL2_IMAGE_INCLUDE_DIR}
     ${SDL2_MIXER_INCLUDE_DIR}
-)
-
-set(SOURCES
-    src/main.cpp
 )
 
 string(JOIN " " CXX_FLAGS_LIST
@@ -42,11 +37,4 @@ string(JOIN " " CXX_FLAGS_LIST
 )
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS_LIST}")
 
-add_executable(synth ${SOURCES})
-target_link_libraries(synth PRIVATE
-    ${SDL2_LIBRARY}
-    ${SDL2_IMAGE_LIBRARY}
-    ${SDL2_TTF_LIBRARY}
-    ${SDL2_MIXER_LIBRARY}
-    m
-)
+add_subdirectory(part1_make_a_sound)
