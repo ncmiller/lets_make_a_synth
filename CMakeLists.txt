@@ -15,8 +15,6 @@ include_directories(
 
 string(JOIN " " CXX_FLAGS_LIST
     -O2
-
-    # https://github.com/lefticus/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#gcc%E2%80%94clang
     -Wall
     -Wextra
     -Wshadow
