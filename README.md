@@ -19,15 +19,9 @@ build/synth
 # Finished Parts
 
 [Part 1:  Making a Sound](part1_make_a_sound)
+[Part 2:  Oscillators](part2_oscillators)
 
 # Future Parts
-
-## Part 2 - Oscillators
-
-### Square
-### Saw
-### Triangle
-### Noise
 
 ## Part 3 - Volume Control and UI
 
