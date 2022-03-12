@@ -128,11 +128,10 @@ At this early stage of the project, I chose SDL2 for the audio library.
 It's possible this may change to PortAudio in the future if SDL audio is
 not up to the task, but I hope that doesn't happen.
 
-## A basic SDL2 project
+## Creating an SDL Window
 
-We already have a basic C++ project, but now we need to add SDL2 audio.
-For now, we just want to get a basic SDL window to show, and we want
-to initialize the SDL audio subsystem.
+We already have a basic C++ project, but now we need to add SDL2 into the mix.
+For now, we just want to get a basic SDL window to show.
 
 First, we must install SDL2.
 
@@ -173,121 +172,41 @@ add_executable(synth main.cpp)
 target_link_libraries(synth PRIVATE ${SDL2_LIBRARY})
 ```
 
-And, finally, we've got a much larger `main.cpp` that creates a window with
-a dark gray background.
+And, finally, we've got to modify `main.cpp` to initialize SDL and create a
+window with a dark gray background.
+
+Here are the important parts (omitting cleanup and error-handling code
+for readability):
 
 ```cpp
 #include <SDL.h>
-#include <stdio.h>
-
-// Window Configuration
-#define WINDOW_WIDTH 360
-#define WINDOW_HEIGHT 640
-
-// Audio Configuration
-#define SAMPLE_RATE_HZ 48000
-#define NUM_SOUND_CHANNELS 2
-// Signed 16-bit samples, in system byte order
-#define SAMPLE_FORMAT AUDIO_S16SYS
-// Smaller buffer == lower latency, but too low will cause crackling
-// For low-latency real-time audio, 512 samples should be good.
-// Assuming 44.1KHz, this will be (512 / 44100) == 11.61 ms of latency.
-#define SAMPLES_PER_BUFFER 512
 
 static SDL_Renderer* _renderer;
 static SDL_Window* _window;
-static SDL_AudioDeviceID _audioDevice;
-
-static void close(void) {
-    SDL_Log("Closing");
-    if (_renderer) {
-        SDL_DestroyRenderer(_renderer);
-    }
-    if (_window) {
-        SDL_DestroyWindow(_window);
-    }
-    SDL_CloseAudioDevice(_audioDevice);
-    SDL_Quit();
-}
-
-static void audioCallback(void* userdata, Uint8* stream, int len) {
-    memset(stream, 0, (size_t)len);
-}
 
 int main(int argc, char* argv[]) {
-    // Initialize SDL
-    if (0 != SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
-        SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
-        return -1;
-    }
-
-    // Initialize Audio
-    SDL_AudioSpec desired = {};
-    desired.freq = SAMPLE_RATE_HZ;
-    desired.format = SAMPLE_FORMAT;
-    desired.channels = NUM_SOUND_CHANNELS;
-    desired.samples = SAMPLES_PER_BUFFER;
-    desired.callback = audioCallback;
-
-    SDL_AudioSpec actual = {};
-    _audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
-    if (_audioDevice <= 0) {
-        SDL_Log("Could not open audio device: %s", SDL_GetError());
-        return -2;
-    }
-    if (desired.format != actual.format) {
-        SDL_Log("Could not get desired audio format");
-        return -2;
-    }
-
-    SDL_Log("-------------------");
-    SDL_Log("sample rate: %d", actual.freq);
-    SDL_Log("channels:    %d", actual.channels);
-    SDL_Log("samples:     %d", actual.samples);
-    SDL_Log("size:        %d", actual.size);
-    SDL_Log("------------------");
-
-    SDL_PauseAudioDevice(_audioDevice, 0);
-
-    // Create a window
+    SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
     _window = SDL_CreateWindow(
         "Synth",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH, WINDOW_HEIGHT,
         0
     );
-    if (_window == nullptr) {
-        SDL_Log("Could not create window: %s", SDL_GetError());
-        close();
-        return -3;
-    }
-
-    // Create a renderer
     _renderer = SDL_CreateRenderer(
             _window,
             -1,
             SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (_renderer == nullptr) {
-        SDL_Log("SDL_CreateRenderer Error: %s\n", SDL_GetError());
-        close();
-        return -4;
-    }
     SDL_RenderSetLogicalSize(_renderer, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     bool loopShouldStop = false;
-    SDL_Event event;
+    SDL_Event event = {};
 
-    // Main SDL Loop
-    SDL_Log("Starting main loop");
     while (!loopShouldStop) {
-        // Check for events
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 loopShouldStop = true;
             }
         }
-
-        // Render frame with dark gray background
         SDL_RenderClear(_renderer);
         SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
         SDL_RenderPresent(_renderer);
@@ -298,60 +217,80 @@ int main(int argc, char* argv[]) {
 }
 ```
 
+This code initializes the SDL library, creates a window, creates a renderer
+which we can draw a background color to, then enters a loop that will run
+until the user closes the window, or force quits the program (e.g. Ctrl-C).
+
 This is not meant to be a series about SDL, so if you want to learn more
-about the SDL library, I can recommend the [Lazy Foo' SDL
-Tutorials](https://lazyfoo.net/tutorials/SDL/).
+about the SDL library, the [Lazy Foo' SDL
+Tutorials](https://lazyfoo.net/tutorials/SDL/) are recommended.
 
-I do however want to draw your attention to a few snippets of the code.
+## Initializing SDL Audio
 
-### Audio Device Configuration
+Now that we have a window and a main loop, we can initialize the audio
+sub-system of SDL.
 
-The SDL audio device is initialized with these lines:
+### Opening the Audio Device
+
+Audio device parameters are specified through the `SDL_AudioSpec` struct:
 
 ```cpp
-    // Initialize Audio
-    SDL_AudioSpec desired = {};
-    desired.freq = SAMPLE_RATE_HZ;
-    desired.format = SAMPLE_FORMAT;
-    desired.channels = NUM_SOUND_CHANNELS;
-    desired.samples = SAMPLES_PER_BUFFER;
-    desired.callback = audioCallback;
-
-    SDL_AudioSpec actual = {};
-    _audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
+SDL_AudioSpec desired = {};
+desired.freq = 48000;          // 48 KHz sampling frequency
+desired.format = AUDIO_S16SYS; // Signed, 16-bit samples
+desired.channels = 2;          // stereo
+desired.samples = 64;          // Audio buffer size, in samples
+desired.callback = audioCallback; // Callback to populate audio samples
 ```
 
-Here, we're setting up our desired sample rate (48000 Hz), sample format (signed,
-16-bit samples), number of channels (2 for stereo), and samples per buffer
-(256).
+With that spec, we can open a default audio device:
 
-The way SDL audio works is - there is a separate audio thread that runs
+```cpp
+SDL_AudioSpec actual = {};
+_audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
+```
+
+The parameters we set are the "desired" parameters, but the actual audio parameters
+might be different, depending on what the system is capable of. Once the
+device is open, you can check whether the `actual` spec matches the `desired`
+spec, to verify, for instance, that the sampling frequency was actually set
+to 48 KHz (and not some other frequency, like 44.1 KHz).
+
+### A Primer on Audio Callbacks
+
+The way SDL audio works is - there is a separate high-priority audio thread that runs
 in SDL, and when it needs new audio data to send to hardware, it will call
 our `audioCallback` function with a buffer that needs to be filled by us with
-sample data. The size of this buffer will depend on our `SAMPLES_PER_BUFFER`
-configuration. We've set it to 256, meaning there are 256 samples per buffer.
-Each sample consist of two 16-bit values (one for left channel, one for
-right), so the total buffer size in bytes is 256 * 2 * 2 = 1024 bytes.
+sample data. The size of this buffer will depend on our sample buffer size,
+which we've set to 64, meaning there are 64 samples per buffer.
+Each sample consist of two signed 16-bit values (one for left channel, one for
+right), so the total buffer size in bytes is 64 * 2 * 2 = 256 bytes.
 
-With 256 samples per buffer and a sample rate of 48 KHz, this means the buffer
-will hold a total of (256 / 48000) = .005333 seconds = 5.333 ms of audio data.
-That also means our callback will be called roughly every 5.333 ms. That means
+With 64 samples per buffer and a sample rate of 48 KHz, this means the buffer
+will hold a total of (64 / 48000) = .001333 seconds = 1.333 ms of audio data.
+That also means our callback will be called roughly every 1.333 ms. That means
 our callback can't waste any time - it needs to fill the buffer as fast as it
-can and return as soon as possible.
+can and return as soon as possible. No time for `printf` inside of that
+callback! In fact, blocking of any kind is a big no-no (e.g. locking a mutex).
 
 The samples per buffer also determines the audio latency.
-Most musicians playing a live instrument need 20 ms or less of latency, or else they'll start to notice.
+Most musicians playing a live instrument need 10 ms or less of latency, or else they'll start to notice.
 We have an audio
-latency of about 5.333 ms. Or in other words, from the time the sound is
-triggered, it will take about 5.333 ms to reach the hardware. In reality, it might
-actually be twice this amount, but it should be good enough for now.
+latency of about 1.333 ms. Or in other words, from the time the sound is
+triggered, it will take about 1.333 ms to reach the speakers. In reality, it might
+actually be twice this amount, but it should be good enough for our purposes.
 
 I think (though I'm not certain) that SDL uses a front and back buffer,
 such that it will call our callback to fill the back buffer while the hardware is accessing the front
 buffer. Then when the front buffer runs out, it swaps front and back, then
 calls our callback to fill the back buffer again.
 
-If we look at our audio callback, it's not doing much right now:
+Okay, cool, so let's write this audio callback.
+
+### The Audio Callback
+
+The most basic audio callback would be something like this, that simply
+sets all audio data to 0.
 
 ```cpp
 static void audioCallback(void* userdata, Uint8* stream, int len) {
@@ -360,32 +299,57 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
 ```
 
 Since we're dealing with signed 16-bit samples, the range of each sample
-will be -32678 to 32767. For now, we just set
+will be -32678 to 32767. We set
 all samples to zero, which will result in _bone-chilling_ silence, which
 pairs well with our dark window background.
 
 ## Generating a sine wave
 
-Okay, now for the fun part. We're going to generate a sine wave which will
-ultimately push some waves out into the air with a frequency of 440 Hz that
-our human ears are sensitive to, and which will be perceived as "sound".
+Okay, now for the fun part.
 
-It's been a while....what's the equation for a sine wave again? Let's look at
-[Wikipedia](https://en.wikipedia.org/wiki/Sine_wave).
+* We're going to generate a sine wave with peak values between -32768 and 32767
+* That data will get sent to the sound card
+* The sound card will convert the digital data to analog signals
+* The analog signals will be routed to the PC speakers
+* The speakers will move in and out at a rate of 440 times per second in response
+  to the analog signal, causing changes in air presssure, or "sound waves".
 
-Okay, cool, the equation is a function of time:
+Our human ears are sensitive to these kinds of changes of air pressure, and will
+be perceived by us as "sound". Cool!
+
+In digital audio terms, this sine wave is called an "oscillator". There are
+infintely many types of oscillators, and a sine wave is just one of them.
+
+As a reminder, this is the equation for a sine wave, as a function of time:
 
 ```
-y(t) = A * sin(2 * PI * f * t + shift)
+y(t) = A * sin(2 * PI * f * t + p)
+
+where,
+    A: amplitude,
+    f: frequency, in hertz
+    t: time, in seconds
+    p: phase shift
 ```
 
-We won't use any phase shift, so we can leave that at 0. Okay, so how is time
-going to work?
+We won't use the phase shift term `p`, so we can leave that at 0.
+The values of `y(t)` will be in the range -1 to 1.
 
-Well, we know with a sample rate of 48 KHz, each sample accounts for (1
-/ 48000) = 2.083e-05 seconds. So when our audio callback gets called, we'll
-just start putting in samples one at a time, and advancing time by this
-miniscule amount.
+We can't perfectly represent this sine wave in digital form, so we will
+sample points of the sine wave at regular intervals, according to the sampling rate.
+With a sample rate of 48 KHz, we need to compute `y(t)` every 1/48000 = 2.083e-5 seconds.
+By sampling that way, you end up with an "almost sine wave" that looks like
+this:
+
+![440 Hz Almost Sine Wave](scripts/sine_stem_plot.png)
+
+This is a single period of our digitized 440 Hz sine wave (wave period is 1/440 = .0023 seconds).
+
+Okay, so how can we do this in code?
+
+The main idea is that in our audio callback we will step forward in time
+by some small amount `dt` equal to `1/48000`, then compute the sine at that point in time, and
+we will do this for however many samples we need to populate the audio buffer.
 
 In code, that will look something like this:
 
@@ -395,34 +359,39 @@ In code, that will look something like this:
 
 static void audioCallback(void* userdata, Uint8* stream, int len) {
     constexpr double twoPi = 2.0 * M_PI;
-    constexpr double secondsPerSample = 1.0 / SAMPLE_RATE_HZ;
-
-    // Sine wave, A440 Hz
+    constexpr double dt = 1.0 / 48000;
     constexpr double freqHz = 440;
     constexpr double periodS = 1.0 / freqHz;
-    // For s16, range is [-32768, 32767]
+    // For s16, range is [-32768, 32767], scaled back by VOLUME control
     constexpr double maxAmp = 32767.0 * VOLUME;
 
     static double t = 0.0;
     while (len > 0) {
-        // Equation for a sine wave:
-        //    y(t) = A * sin(2 * PI * f * t + shift)
+        // Compute the sample point
         double y = maxAmp * sin(twoPi * freqHz * t);
 
+        // Populate left and right channels with the same sample
         int16_t* left = (int16_t*)(stream);
         int16_t* right = (int16_t*)(stream + 2);
         *left = (int16_t)y;
         *right = (int16_t)y;
 
-        t += secondsPerSample;
-        if (t > periodS) {
-             t -= periodS;
+        t += dt;
+        if (t >= periodS) { // wraparound
+            t -= periodS;
         }
+
+        // Advance forward in the stream
         stream += 4;
         len -= 4;
     }
 }
 ```
+
+Note that the value `t` is marked `static`, meaning that the value will
+persist across calls. This means the next time our audio callback is called,
+t will continue where it left off, which is important so that our sine wave
+is smooth and continuous, and not restarting every time the callback is called.
 
 We don't want our ears to start bleeding, so the `VOLUME` scaling factor
 reduces the sine wave amplitude to a comfortable listening level.
@@ -430,3 +399,136 @@ reduces the sine wave amplitude to a comfortable listening level.
 After compiling and running the program again, we get a glorious tone
 at 440 Hz. We won't be winning Grammy's anytime soon, but it feels good
 to have basic audio working.
+
+## Trigger Sound with Mouse
+
+It's not ideal that the sine wave plays immediately when the program starts.
+It would be nice to have some control over when the wave starts and stops.
+
+We're going to start playing the sound wave when a mouse button is clicked,
+and we will continue playing the sound while the button is held down.
+
+To do this, we need to listen to mouse click events in the SDL loop:
+
+```c
+    while (!loopShouldStop) {
+        // Check for events
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                loopShouldStop = true;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                _playSound = true;
+            } else if (event.type == SDL_MOUSEBUTTONUP) {
+                _playSound = false;
+            }
+        }
+```
+
+Then we need to use `_playSound` in our audio callback:
+
+```c
+static void audioCallback(void* userdata, Uint8* stream, int len) {
+    // ...
+    while (len > 0) {
+        double y = 0.0; // default sample value
+        if (_playSound) {
+            y = maxAmp * sin(twoPi * freqHz * t);
+        }
+        //...
+    }
+    // ...
+}
+```
+
+Running the program, you will see that the 440 Hz sine wave is only audible
+when the mouse button is held down. It sounds a little like morse code
+if you click really fast!
+
+### That Annoying Click at the Beginning and End
+
+If you try the program out, you'll discover there's an audible and annoying
+clicking sound when the wave starts to play, and again when the wave stops
+playing. What could be causing this?
+
+The problem is that our value `t` is always incrementing by `dt`, regardless of
+whether the sine wave is playing or not. That means that when we finally
+trigger the sound, `t` will be at some random location in the middle
+of the sine wave, which causes a rapid change in `y` from 0 to `y(t)`, for whatever
+value of `t` we happened to land on. Likewise the audible click when the sound stops is due to a rapid change from
+`y(t)` to 0, for whatever value of `t` we happened to be on.
+
+We will fix this clicking problem by
+treating the mousedown event as a "start request" and mouseup event as a
+"stop request", but the actual starting and stopping will be controlled
+by the audio callback. In the callback, we will wait until the beginning
+of the waveform period to fulfull the start/stop request, because this is
+the point in the waveform where the value is close to 0. This will prevent
+rapid changes in value that were the source of the audible click.
+
+```cpp
+static bool _start;
+static bool _stop;
+static bool _soundEnabled;
+
+static void audioCallback(void* userdata, Uint8* stream, int len) {
+    // ...
+    while (len > 0) {
+        double y = 0.0;
+        if (_soundEnabled) {
+            y = maxAmp * sin(twoPi * freqHz * t);
+        }
+        // ...
+        t += dt;
+        if (t >= periodS) { // wraparound
+            // We're at the start of the wave, so it's
+            // safe to enable or disable sound here.
+            assert(y <= 0.001);
+            if (_start) {
+                _start = false;
+                _soundEnabled = true;
+            } else if (_stop) {
+                 _stop = false;
+                _soundEnabled = false;
+            }
+            t -= periodS;
+        }
+        //...
+    }
+    // ...
+}
+
+int main(int argc, char* argv[]) {
+    // ...
+    // SDL Main Loop
+    while (!loopShouldStop) {
+        // Check for events
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                loopShouldStop = true;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                _start = true; // cleared by audioCallback
+            } else if (event.type == SDL_MOUSEBUTTONUP) {
+                _stop = true; // cleared by audioCallback
+            }
+        }
+    // ...
+```
+
+There, that sounds much better.
+
+## Wrapping Up
+
+That's all for this part. We covered a lot of ground!
+
+1. We created a window in SDL
+1. We opened an audio device
+1. We generated a sine wave and got it to play through our speakers
+1. We added the ability to start/stop playback by clicking the mouse
+1. We fixed the annoying clicking sound at the beginning and end of playback
+
+In the next part, we'll introduce other kinds of oscillators, like the
+square wave, triangle wave, and saw wave.
+
+If you want to demo the final program for this part, click on the link below.
+
+<TBD>

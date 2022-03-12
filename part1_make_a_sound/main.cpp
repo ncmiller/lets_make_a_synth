@@ -13,13 +13,20 @@
 // Signed 16-bit samples, in system byte order
 #define SAMPLE_FORMAT AUDIO_S16SYS
 // Smaller buffer == lower latency, but too low can cause crackling.
-#define SAMPLES_PER_BUFFER 256 // (256 / 48000) = 5.333 ms latency
+#define SAMPLES_PER_BUFFER 64 // (64 / 48000) = 1.333 ms latency
 // Max volume, scaling factor from 0.0 to 1.0
 #define VOLUME 0.025 // about -32 dB
+
+constexpr double twoPi = 2.0 * M_PI;
+constexpr double dt = 1.0 / SAMPLE_RATE_HZ;
+constexpr double maxAmp = 32767.0 * VOLUME;
 
 static SDL_Renderer* _renderer;
 static SDL_Window* _window;
 static SDL_AudioDeviceID _audioDevice;
+static bool _start;
+static bool _stop;
+static bool _soundEnabled;
 
 static void close(void) {
     SDL_Log("Closing");
@@ -34,30 +41,37 @@ static void close(void) {
 }
 
 static void audioCallback(void* userdata, Uint8* stream, int len) {
-    constexpr double twoPi = 2.0 * M_PI;
-    constexpr double secondsPerSample = 1.0 / SAMPLE_RATE_HZ;
-
-    // Sine wave, A440 Hz
     constexpr double freqHz = 440;
     constexpr double periodS = 1.0 / freqHz;
-    // For s16, range is [-32768, 32767]
-    constexpr double maxAmp = 32767.0 * VOLUME;
+    // For s16, range is [-32768, 32767], scaled back by VOLUME control
 
     static double t = 0.0;
     while (len > 0) {
-        // Equation for a sine wave:
-        //    y(t) = A * sin(2 * PI * f * t + shift)
-        double y = maxAmp * sin(twoPi * freqHz * t);
+        double y = 0.0;
+        if (_soundEnabled) {
+            y = maxAmp * sin(twoPi * freqHz * t);
+        }
 
+        // Populate left and right channels with the same sample
         int16_t* left = (int16_t*)(stream);
         int16_t* right = (int16_t*)(stream + 2);
         *left = (int16_t)y;
         *right = (int16_t)y;
 
-        t += secondsPerSample;
-        if (t > periodS) {
-             t -= periodS;
+        t += dt;
+        if (t >= periodS) { // wraparound
+            assert(y <= 0.001);
+            if (_start) {
+                _start = false;
+                _soundEnabled = true;
+            } else if (_stop) {
+                 _stop = false;
+                _soundEnabled = false;
+            }
+            t -= periodS;
         }
+
+        // Advance forward in the stream
         stream += 4;
         len -= 4;
     }
@@ -133,6 +147,10 @@ int main(int argc, char* argv[]) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 loopShouldStop = true;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                _start = true;
+            } else if (event.type == SDL_MOUSEBUTTONUP) {
+                _stop = true;
             }
         }
 

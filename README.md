@@ -26,3 +26,13 @@ build/synth
 ## Part 3 - Volume Control and UI
 
 ### ImGui
+
+# Useful Reference
+
+I found the following references useful while learning and researching for
+this project.
+
+1. Audio Programming Basics: <https://www.youtube.com/watch?v=boPEO2auJj4>
+1. SDL Tutorial: <https://lazyfoo.net/tutorials/SDL/>
+1. Audio DSP in Octave: <https://www.youtube.com/watch?v=tx_cjBjZ2zM>
+1. Wavetables: <https://multimed.org/student/eim/en/05-Wavetable.pdf>

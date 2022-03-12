@@ -8,53 +8,6 @@ In part 2, we will explore other common synthesizer oscillators,
 like the square wave, saw wave, and triangle wave, and a noise
 generator.
 
-## Trigger Sound with Mouse
-
-Before we dive into oscillators, let's take a quick detour.
-
-In part 1, the sine wave played continuously as soon as the application
-was launched, without any input from the user. We can do better.
-
-Instead of triggering immediately, it would be nice if we could left click
-the mouse to trigger the sound, with the sound sustaining as long the
-mouse button is held down.
-
-To do this, we need to listen to mouse click events in the SDL loop:
-
-```c
-    while (!loopShouldStop) {
-        // Check for events
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                loopShouldStop = true;
-            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
-                _playSound = true;
-            } else if (event.type == SDL_MOUSEBUTTONUP) {
-                _playSound = false;
-            }
-        }
-```
-
-The global variable `_playSound` will be `true` only when the button is held down.
-
-Then we need to use `_playSound` in our audio callback:
-
-```c
-        double y = 0.0;
-        if (_playSound) {
-            // Equation for a sine wave:
-            //    y(t) = A * sin(2 * PI * f * t + shift)
-            y = maxAmp * sin(twoPi * freqHz * t);
-        }
-```
-
-By default the sound is off. Only when our global is true will the sine wave
-output be used.
-
-Running the program, you will see that the 440 Hz sine wave is only audible
-when the mouse button is held down. It sounds a little like morse code
-if you spam clicks.
-
 ## Square Wave
 
 You probably already know what a square wave looks like, and you probably
