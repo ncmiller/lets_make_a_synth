@@ -18,8 +18,8 @@ build/synth
 
 # Finished Parts
 
-[Part 1:  Making a Sound](part1_make_a_sound)
-[Part 2:  Oscillators](part2_oscillators)
+1. [Part 1:  Making a Sound](part1_make_a_sound)
+1. [Part 2:  Oscillators](part2_oscillators)
 
 # Future Parts
 

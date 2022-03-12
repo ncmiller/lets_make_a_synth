@@ -237,7 +237,7 @@ Audio device parameters are specified through the `SDL_AudioSpec` struct:
 ```cpp
 SDL_AudioSpec desired = {};
 desired.freq = 48000;          // 48 KHz sampling frequency
-desired.format = AUDIO_S16SYS; // Signed, 16-bit samples
+desired.format = AUDIO_F32SYS; // 32-bit float samples
 desired.channels = 2;          // stereo
 desired.samples = 64;          // Audio buffer size, in samples
 desired.callback = audioCallback; // Callback to populate audio samples
@@ -298,8 +298,8 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
 }
 ```
 
-Since we're dealing with signed 16-bit samples, the range of each sample
-will be -32678 to 32767. We set
+Since we're dealing with 32-bit float samples, the range of each sample
+will be -1.0 to 1.0. We set
 all samples to zero, which will result in _bone-chilling_ silence, which
 pairs well with our dark window background.
 
@@ -307,7 +307,7 @@ pairs well with our dark window background.
 
 Okay, now for the fun part.
 
-* We're going to generate a sine wave with peak values between -32768 and 32767
+* We're going to generate a sine wave with peak values between -1 and 1
 * That data will get sent to the sound card
 * The sound card will convert the digital data to analog signals
 * The analog signals will be routed to the PC speakers
@@ -362,19 +362,17 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     constexpr double dt = 1.0 / 48000;
     constexpr double freqHz = 440;
     constexpr double periodS = 1.0 / freqHz;
-    // For s16, range is [-32768, 32767], scaled back by VOLUME control
-    constexpr double maxAmp = 32767.0 * VOLUME;
 
     static double t = 0.0;
     while (len > 0) {
         // Compute the sample point
-        double y = maxAmp * sin(twoPi * freqHz * t);
+        double y = VOLUME * sin(twoPi * freqHz * t);
 
         // Populate left and right channels with the same sample
-        int16_t* left = (int16_t*)(stream);
-        int16_t* right = (int16_t*)(stream + 2);
-        *left = (int16_t)y;
-        *right = (int16_t)y;
+        float* left = (float*)(stream);
+        float* right = (float*)(stream + 2);
+        *left = (float)y;
+        *right = (float)y;
 
         t += dt;
         if (t >= periodS) { // wraparound
@@ -432,7 +430,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     while (len > 0) {
         double y = 0.0; // default sample value
         if (_playSound) {
-            y = maxAmp * sin(twoPi * freqHz * t);
+            y = VOLUME * sin(twoPi * freqHz * t);
         }
         //...
     }
@@ -475,7 +473,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     while (len > 0) {
         double y = 0.0;
         if (_soundEnabled) {
-            y = maxAmp * sin(twoPi * freqHz * t);
+            y = VOLUME * sin(twoPi * freqHz * t);
         }
         // ...
         t += dt;
