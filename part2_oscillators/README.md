@@ -73,7 +73,7 @@ the smooth and clean sine wave. The square wave is often characterized as having
 "buzzy" sound.
 
 Let's change the sine wave to a square wave. In our audio callback, we can
-disable the sine wave code and replace it with our square wave function.
+disable the sine wave code and replace it with square wave code.
 
 ```c
     while (len > 0) {
@@ -84,6 +84,7 @@ disable the sine wave code and replace it with our square wave function.
             //    y(t) = A * sin(2 * PI * f * t + shift)
             y = maxAmp * sin(twoPi * freqHz * t);
 #endif
+            // Square wave
             double dutyCycle = 0.5;
             if (t < (periodS * dutyCycle)) {
                 y = maxAmp;

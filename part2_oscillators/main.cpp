@@ -53,7 +53,8 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
             //    y(t) = A * sin(2 * PI * f * t + shift)
             y = maxAmp * sin(twoPi * freqHz * t);
 #endif
-            double dutyCycle = 0.5;
+            // Square wave
+            double dutyCycle = 0.25;
             if (t < (periodS * dutyCycle)) {
                 y = maxAmp;
             } else {
