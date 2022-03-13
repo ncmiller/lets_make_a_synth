@@ -24,8 +24,9 @@ build/synth
 # Future Parts
 
 ## Part 3 - Volume Control and UI
-
-### ImGui
+## Part 4 - Envelopes
+## Part 5 - LFOs
+## Part 5 - Wave Tables
 
 # Useful Reference
 

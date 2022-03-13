@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+
+<body>
+    <h1>Let's Make a Synth, Part 2</h1>
+
+    <p>Left click: play sound</p>
+    <p>Right click: cycle through different oscillators</p>
+    <p>Mouse vertical motion: pitch bend</p>
+
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <script type='text/javascript'>
+        var Module = {
+            canvas: (function() { return document.getElementById('canvas'); })()
+        };
+    </script>
+    <script src="synth.js"></script>
+
+    <br/>
+    <a href="https://github.com/ncmiller/lets_make_a_synth/tree/master/part2_oscillators">Part 2 tutorial</a>
+</body>
+
+</html>
+
