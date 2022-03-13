@@ -528,6 +528,7 @@ That's all for this part. We covered a lot of ground!
 In the next part, we'll introduce other kinds of oscillators, like the
 square wave, triangle wave, and saw wave.
 
-If you want to demo the final program for this part, click on the link below.
+If you want to demo the final program for this part in your web browser,
+click on the link below.
 
-<TBD>
+<https://ncmiller.dev/wasm/synth_part1/>
