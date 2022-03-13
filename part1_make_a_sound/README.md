@@ -263,12 +263,13 @@ in SDL, and when it needs new audio data to send to hardware, it will call
 our `audioCallback` function with a buffer that needs to be filled by us with
 sample data. The size of this buffer will depend on our sample buffer size,
 which we've set to 64, meaning there are 64 samples per buffer.
-Each sample consist of two signed 16-bit values (one for left channel, one for
-right), so the total buffer size in bytes is 64 * 2 * 2 = 256 bytes.
+Each sample consist of two 32-bit float values (one for left channel, one for
+right), so the total buffer size in bytes is 64 * 2 * sizeof(float) = 512 bytes.
 
 With 64 samples per buffer and a sample rate of 48 KHz, this means the buffer
 will hold a total of (64 / 48000) = .001333 seconds = 1.333 ms of audio data.
-That also means our callback will be called roughly every 1.333 ms. That means
+That also means our callback will be called roughly every 1.333 ms. That's
+pretty darn fast. That means
 our callback can't waste any time - it needs to fill the buffer as fast as it
 can and return as soon as possible. No time for `printf` inside of that
 callback! In fact, blocking of any kind is a big no-no (e.g. locking a mutex).
@@ -307,11 +308,11 @@ pairs well with our dark window background.
 
 Okay, now for the fun part.
 
-* We're going to generate a sine wave with peak values between -1 and 1
+* We're going to generate a sine wave with values between -1 and 1
 * That data will get sent to the sound card
 * The sound card will convert the digital data to analog signals
 * The analog signals will be routed to the PC speakers
-* The speakers will move in and out at a rate of 440 times per second in response
+* The speakers will physically move in and out at a rate of 440 times per second in response
   to the analog signal, causing changes in air presssure, or "sound waves".
 
 Our human ears are sensitive to these kinds of changes of air pressure, and will
@@ -343,7 +344,7 @@ this:
 
 ![440 Hz Almost Sine Wave](scripts/sine_stem_plot.png)
 
-This is a single period of our digitized 440 Hz sine wave (wave period is 1/440 = .0023 seconds).
+This is a single period of our digitized 440 Hz sine wave (wave period is 1/440 = .002273 seconds).
 
 Okay, so how can we do this in code?
 
@@ -370,7 +371,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
 
         // Populate left and right channels with the same sample
         float* left = (float*)(stream);
-        float* right = (float*)(stream + 2);
+        float* right = (float*)(stream + 4);
         *left = (float)y;
         *right = (float)y;
 
@@ -380,8 +381,8 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
         }
 
         // Advance forward in the stream
-        stream += 4;
-        len -= 4;
+        stream += (2 * sizeof(float));
+        len -= (2 * sizeof(float));
     }
 }
 ```
@@ -398,7 +399,7 @@ After compiling and running the program again, we get a glorious tone
 at 440 Hz. We won't be winning Grammy's anytime soon, but it feels good
 to have basic audio working.
 
-## Trigger Sound with Mouse
+## Triggering Sound with the Mouse
 
 It's not ideal that the sine wave plays immediately when the program starts.
 It would be nice to have some control over when the wave starts and stops.
@@ -482,10 +483,10 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
             // safe to enable or disable sound here.
             assert(y <= 0.001);
             if (_start) {
-                _start = false;
+                _start = false; // clear flag
                 _soundEnabled = true;
             } else if (_stop) {
-                 _stop = false;
+                 _stop = false; // clear flag
                 _soundEnabled = false;
             }
             t -= periodS;
