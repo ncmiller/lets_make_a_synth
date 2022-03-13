@@ -10,6 +10,7 @@ string(JOIN " " CXX_FLAGS_LIST
     -Wconversion
     -Wno-unused-parameter
     -Wno-unused-variable
+    -Wno-unused-function
     -Wnull-dereference
     -Wdouble-promotion
     -Wformat=2
