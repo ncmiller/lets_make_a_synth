@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#if IS_WASM_BUILD
+#include <emscripten.h>
+#endif
 
 // Window Configuration
 #define WINDOW_WIDTH 360
@@ -10,12 +13,13 @@
 // Audio Configuration
 #define SAMPLE_RATE_HZ 48000
 #define NUM_SOUND_CHANNELS 2
-// 32-bit float samples, in system byte order
-#define SAMPLE_FORMAT AUDIO_F32SYS
-// Smaller buffer == lower latency, but too low can cause crackling.
+#define SAMPLE_FORMAT AUDIO_F32SYS // 32-bit float
+#define VOLUME 0.025 // max volume, about -32 dB
+#ifdef IS_WASM_BUILD
+#define SAMPLES_PER_BUFFER 256 // (256 / 48000) = 5.333 ms latency
+#else
 #define SAMPLES_PER_BUFFER 64 // (64 / 48000) = 1.333 ms latency
-// Max volume, scaling factor from 0.0 to 1.0
-#define VOLUME 0.025 // about -32 dB
+#endif
 
 
 static SDL_Renderer* _renderer;
@@ -75,6 +79,25 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
         stream += (2 * sizeof(float));
         len -= (2 * sizeof(float));
     }
+}
+
+static void loop(void* arg) {
+    // Check for events
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            _loopShouldStop = true;
+        } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+            _start = true;
+        } else if (event.type == SDL_MOUSEBUTTONUP) {
+            _stop = true;
+        }
+    }
+
+    // Render frame with dark gray background
+    SDL_RenderClear(_renderer);
+    SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
+    SDL_RenderPresent(_renderer);
 }
 
 int main(int argc, char* argv[]) {
@@ -138,26 +161,17 @@ int main(int argc, char* argv[]) {
 
     SDL_PauseAudioDevice(_audioDevice, 0);
 
+#ifdef IS_WASM_BUILD
+    const int simulate_infinite_loop = 1;
+    const int fps = 60;
+    emscripten_set_main_loop_arg(loop, NULL, fps, simulate_infinite_loop);
+#else
     // Main SDL Loop
-    SDL_Event event;
     SDL_Log("Starting main loop");
     while (!_loopShouldStop) {
-        // Check for events
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                _loopShouldStop = true;
-            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
-                _start = true;
-            } else if (event.type == SDL_MOUSEBUTTONUP) {
-                _stop = true;
-            }
-        }
-
-        // Render frame with dark gray background
-        SDL_RenderClear(_renderer);
-        SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
-        SDL_RenderPresent(_renderer);
+        loop(NULL);
     }
+#endif
 
     close();
     return 0;
