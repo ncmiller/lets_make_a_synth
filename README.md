@@ -26,7 +26,7 @@ build/synth
 ## Part 3 - Volume Control and UI
 ## Part 4 - Envelopes
 ## Part 5 - LFOs
-## Part 5 - Wave Tables
+## Part 6 - Wave Tables
 
 # Useful Reference
 

@@ -338,7 +338,7 @@ notice some strange dissonant overtones.
 
 This is a problem called "frequency aliasing",
 and is a direct consequence of the
-[Nyquist-Shannon Sampline Theorem](https://en.wikipedia.org/wiki/Nyquist%E2%80%93Shannon_sampling_theorem)
+[Nyquist-Shannon Sampling Theorem](https://en.wikipedia.org/wiki/Nyquist%E2%80%93Shannon_sampling_theorem)
 which basically states that it's impossible to represent any frequencies above
 half of our sampling rate. Or flipped around - we can represent any frequency
 up to half of our sampling rate (48000 / 2 = 24000 Hz), but anything above
@@ -356,7 +356,7 @@ will address this problem of aliasing in future parts.
 In this part we:
 
 1. Explored different kinds of oscillators, including the saw, square, triangle,
-   and white noise oscillators.
+   and white noise oscillators
 1. Added a feature to change the oscillator with a right mouse click
 1. Added a visualization of the waveform
 1. Added a feature to pitch bend the oscillator using mouse vertical motion
