@@ -23,7 +23,16 @@ build/synth
 
 # Future Parts
 
-## Part 3 - Volume Control and UI
+## Part 3 - User Interface
+
+Sketch
+Fonts
+https://fonts.google.com/specimen/Lato
+Text
+Volume, Knob
+Waveform, Horizontal Selector
+Coarse and Fine Pitch, Value Drag
+
 ## Part 4 - Envelopes
 ## Part 5 - LFOs
 ## Part 6 - Wave Tables
@@ -34,6 +43,7 @@ I found the following references useful while learning and researching for
 this project.
 
 1. Audio Programming Basics: <https://www.youtube.com/watch?v=boPEO2auJj4>
+1. Vital Synth: https://github.com/mtytel/vital
 1. SDL Tutorial: <https://lazyfoo.net/tutorials/SDL/>
 1. Audio DSP in Octave: <https://www.youtube.com/watch?v=tx_cjBjZ2zM>
 1. Wavetables: <https://multimed.org/student/eim/en/05-Wavetable.pdf>
