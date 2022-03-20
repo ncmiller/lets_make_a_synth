@@ -73,8 +73,11 @@ to the `assets/fonts/` directory.
 ## Refactor - Moving the UI code out of main.cpp
 
 Currently, all of our code is in `main.cpp`. However, things are getting a bit
-messy there, so in preparation for our UI work, let's move the UI code to
-a different file.
+messy there, so in preparation for our UI work, let's create some new files.
+
+We'll start by creating a file `synth.h` that will contain a struct with
+all of the globally available data. All of the global variables we were using
+in `main.cpp` will go into this struct.
 
 ## UI class
 
