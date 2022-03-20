@@ -79,7 +79,25 @@ We'll start by creating a file `synth.h` that will contain a struct with
 all of the globally available data. All of the global variables we were using
 in `main.cpp` will go into this struct.
 
-## UI class
+```cpp
+struct Synth {
+    SDL_Renderer* renderer;
+    SDL_Window* window;
+    SDL_AudioDeviceID audioDevice;
+    bool loopShouldStop = false;
+    bool start = false;
+    bool stop = false;
+    bool soundEnabled = false;
+    double freqHz = DEFAULT_FREQ;
+    OscillatorFn oscFn = sine;
+};
+extern Synth gSynth;
+```
+
+Next, we'll create a new file `oscillator.h`, which will contain our
+oscillator class. We'll migrate oscillator code from `main.cpp` into this new class.
+This is a just a refactor (moving code to a new file), so we'll skip
+the details.
 
 ## Text
 

@@ -1,7 +1,6 @@
 #include "synth.h"
 #include <SDL_ttf.h>
 #include <stdio.h>
-#include <math.h>
 #include <assert.h>
 #include <algorithm>
 #if IS_WASM_BUILD
@@ -27,20 +26,6 @@ constexpr double _dt = 1.0 / SAMPLE_RATE_HZ;
 
 Synth gSynth;
 
-static void nextOsc() {
-    if (gSynth.oscFn == sine) {
-        gSynth.oscFn = square;
-    } else if (gSynth.oscFn == square) {
-        gSynth.oscFn = triangle;
-    } else if (gSynth.oscFn == triangle) {
-        gSynth.oscFn = saw;
-    } else if (gSynth.oscFn == saw) {
-        gSynth.oscFn = whitenoise;
-    } else if (gSynth.oscFn == whitenoise) {
-        gSynth.oscFn = sine;
-    }
-}
-
 static void close(void) {
     SDL_Log("Closing");
     SDL_CloseAudioDevice(gSynth.audioDevice);
@@ -53,48 +38,6 @@ static void close(void) {
     SDL_Quit();
 }
 
-double sine(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    constexpr double twoPi = 2.0 * M_PI;
-    return sin(twoPi * freqHz * t);
-}
-
-double square(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double halfPeriodS = 1.0 / freqHz / 2.0;
-    if (t < halfPeriodS) {
-        return 1;
-    } else {
-        return -1;
-    }
-}
-
-double saw(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double periodS = 1.0 / freqHz;
-    const double percentComplete = t / periodS;
-    // scale and offset to get it in range [-1, 1]
-    return 2.0 * percentComplete - 1.0;
-}
-
-double triangle(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double periodS = 1.0 / freqHz;
-    const double percentComplete = t / periodS;
-    if (percentComplete <= 0.5) {
-        // 1 down to -1
-        return 1.0 - 4.0 * percentComplete;
-    } else {
-        // -1 up to 1
-        return -1.0 + 4.0 * (percentComplete - 0.5);
-    }
-}
-
-double whitenoise(double t, double freqHz) {
-    double rand_normalized = (double)rand() / (double)RAND_MAX;
-    return 2.0 * rand_normalized - 1.0;
-}
-
 static void audioCallback(void* userdata, Uint8* stream, int len) {
     assert(len == SAMPLES_PER_BUFFER * NUM_SOUND_CHANNELS * sizeof(float));
     const double periodS = 1.0 / gSynth.freqHz;
@@ -103,7 +46,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     while (len > 0) {
         double y = 0.0;
         if (gSynth.soundEnabled) {
-            y = VOLUME * gSynth.oscFn(t, gSynth.freqHz);
+            y = VOLUME * gSynth.osc.getSample(t, gSynth.freqHz);
         }
 
         // Populate left and right channels with the same sample
@@ -150,7 +93,7 @@ static void drawWaveform(void) {
     // from the waveform point at t = 0.
     const double periodS = 1.0 / DEFAULT_FREQ;
     for (double t = 0.0; t < periodS; t += _dt) {
-        double y = gSynth.oscFn(t, gSynth.freqHz);
+        double y = gSynth.osc.getSample(t, gSynth.freqHz);
         // Convert (t,y) to 2-D coord (px,py)
         int px = padding + (int)((t / periodS) * drawingWidth);
         int py = padding + (int)((drawingWidth / 2) * (1.0 - y));
@@ -175,7 +118,7 @@ static void loop(void* arg) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 gSynth.stop = true;
             } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                nextOsc();
+                gSynth.osc.nextFn();
             }
         } else if (event.type == SDL_MOUSEMOTION) {
             constexpr double dFreqMaxHz = DEFAULT_FREQ;
