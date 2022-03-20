@@ -1,4 +1,6 @@
-#include "synth.h"
+#include "constants.h"
+#include "ui.h"
+#include "oscillator.h"
 #include <SDL_ttf.h>
 #include <stdio.h>
 #include <assert.h>
@@ -7,46 +9,40 @@
 #include <emscripten.h>
 #endif
 
-// Window Configuration
-#define WINDOW_WIDTH 360
-#define WINDOW_HEIGHT 360
+struct Synth {
+    SDL_Renderer* renderer;
+    SDL_Window* window;
+    SDL_AudioDeviceID audioDevice;
+    bool loopShouldStop = false;
+    bool start = false;
+    bool stop = false;
+    bool soundEnabled = false;
+    double freqHz = DEFAULT_FREQ;
+    Oscillator::Context oscContext;
+};
 
-// Audio Configuration
-#define SAMPLE_RATE_HZ 48000
-#define NUM_SOUND_CHANNELS 2
-#define SAMPLE_FORMAT AUDIO_F32SYS // 32-bit float
-#define VOLUME 0.025 // max volume, about -32 dB
-#ifdef IS_WASM_BUILD
-#define SAMPLES_PER_BUFFER 256 // (256 / 48000) = 5.333 ms latency
-#else
-#define SAMPLES_PER_BUFFER 64 // (64 / 48000) = 1.333 ms latency
-#endif
-
-constexpr double _dt = 1.0 / SAMPLE_RATE_HZ;
-
-Synth gSynth;
-
-static void close(void) {
+static void close(const Synth& synth) {
     SDL_Log("Closing");
-    SDL_CloseAudioDevice(gSynth.audioDevice);
-    if (gSynth.renderer) {
-        SDL_DestroyRenderer(gSynth.renderer);
+    SDL_CloseAudioDevice(synth.audioDevice);
+    if (synth.renderer) {
+        SDL_DestroyRenderer(synth.renderer);
     }
-    if (gSynth.window) {
-        SDL_DestroyWindow(gSynth.window);
+    if (synth.window) {
+        SDL_DestroyWindow(synth.window);
     }
     SDL_Quit();
 }
 
 static void audioCallback(void* userdata, Uint8* stream, int len) {
     assert(len == SAMPLES_PER_BUFFER * NUM_SOUND_CHANNELS * sizeof(float));
-    const double periodS = 1.0 / gSynth.freqHz;
+    Synth& synth = *(Synth*)userdata;
+    const double periodS = 1.0 / synth.freqHz;
 
     static double t = 0.0;
     while (len > 0) {
         double y = 0.0;
-        if (gSynth.soundEnabled) {
-            y = VOLUME * gSynth.osc.getSample(t, gSynth.freqHz);
+        if (synth.soundEnabled) {
+            y = VOLUME * Oscillator::getSample(synth.oscContext, t, synth.freqHz);
         }
 
         // Populate left and right channels with the same sample
@@ -55,14 +51,14 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
         *left = (float)y;
         *right = (float)y;
 
-        t += _dt;
+        t += dt;
         if (t >= periodS) { // wraparound
-            if (gSynth.start) {
-                gSynth.start = false;
-                gSynth.soundEnabled = true;
-            } else if (gSynth.stop) {
-                 gSynth.stop = false;
-                gSynth.soundEnabled = false;
+            if (synth.start) {
+                synth.start = false;
+                synth.soundEnabled = true;
+            } else if (synth.stop) {
+                 synth.stop = false;
+                synth.soundEnabled = false;
             }
             t -= periodS;
         }
@@ -73,103 +69,76 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     }
 }
 
-static void drawCircle(int centerX, int centerY, int radius) {
-    for (int y = -radius; y <= radius; y++) {
-        for (int x = -radius; x <= radius; x++) {
-            if (x * x + y * y <= radius * radius) {
-                SDL_RenderDrawPoint(gSynth.renderer, centerX + x, centerY + y);
-            }
-        }
-    }
-}
-
-static void drawWaveform(void) {
-    SDL_SetRenderDrawColor(gSynth.renderer, 50, 205, 50, 255); // lime green
-
-    int padding = (int)(0.1 * (double)WINDOW_WIDTH);
-    int drawingWidth = WINDOW_WIDTH - 2 * padding;
-
-    // Draw the waveform from left to right, as if starting
-    // from the waveform point at t = 0.
-    const double periodS = 1.0 / DEFAULT_FREQ;
-    for (double t = 0.0; t < periodS; t += _dt) {
-        double y = gSynth.osc.getSample(t, gSynth.freqHz);
-        // Convert (t,y) to 2-D coord (px,py)
-        int px = padding + (int)((t / periodS) * drawingWidth);
-        int py = padding + (int)((drawingWidth / 2) * (1.0 - y));
-        int radius = (gSynth.soundEnabled ? 4 : 1);
-        drawCircle(px, py, radius);
-    }
-}
-
 static void loop(void* arg) {
+    Synth& synth = *(Synth*)arg;
     // Check for events
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
-            gSynth.loopShouldStop = true;
+            synth.loopShouldStop = true;
         } else if (event.key.keysym.sym == SDLK_ESCAPE) {
-            gSynth.loopShouldStop = true;
+            synth.loopShouldStop = true;
         } else if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
-                gSynth.start = true;
+                synth.start = true;
             }
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             if (event.button.button == SDL_BUTTON_LEFT) {
-                gSynth.stop = true;
+                synth.stop = true;
             } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                gSynth.osc.nextFn();
+                Oscillator::nextFn(synth.oscContext);
             }
         } else if (event.type == SDL_MOUSEMOTION) {
             constexpr double dFreqMaxHz = DEFAULT_FREQ;
-            if (gSynth.soundEnabled) {
-                gSynth.freqHz -= dFreqMaxHz * ((double)event.motion.yrel / (double)WINDOW_HEIGHT);
+            if (synth.soundEnabled) {
+                synth.freqHz -= dFreqMaxHz * ((double)event.motion.yrel / (double)WINDOW_HEIGHT);
                 // Clip if freq goes too low or high
-                gSynth.freqHz = std::max(gSynth.freqHz, 1.0);
-                gSynth.freqHz = std::min(gSynth.freqHz, SAMPLE_RATE_HZ / 2.0);
+                synth.freqHz = std::max(synth.freqHz, 1.0);
+                synth.freqHz = std::min(synth.freqHz, SAMPLE_RATE_HZ / 2.0);
             }
         }
     }
 
     // Render frame with dark gray background
-    SDL_SetRenderDrawColor(gSynth.renderer, 25, 25, 25, 255);
-    SDL_RenderClear(gSynth.renderer);
-    drawWaveform();
-    SDL_RenderPresent(gSynth.renderer);
+    SDL_SetRenderDrawColor(synth.renderer, 25, 25, 25, 255);
+    SDL_RenderClear(synth.renderer);
+    UI::drawWaveform(synth.renderer, synth.oscContext.fn, synth.freqHz, synth.soundEnabled);
+    SDL_RenderPresent(synth.renderer);
 }
 
 int main(int argc, char* argv[]) {
+    Synth synth = {};
+
     // Initialize SDL
     if (0 != SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
         return -1;
     }
 
-
     // Create a window
-    gSynth.window = SDL_CreateWindow(
+    synth.window = SDL_CreateWindow(
         "Synth (Part 2)",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH, WINDOW_HEIGHT,
         0
     );
-    if (gSynth.window == nullptr) {
+    if (synth.window == nullptr) {
         SDL_Log("Could not create window: %s", SDL_GetError());
-        close();
+        close(synth);
         return -3;
     }
 
     // Create a renderer
-    gSynth.renderer = SDL_CreateRenderer(
-            gSynth.window,
+    synth.renderer = SDL_CreateRenderer(
+            synth.window,
             -1,
             SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (gSynth.renderer == nullptr) {
+    if (synth.renderer == nullptr) {
         SDL_Log("SDL_CreateRenderer Error: %s\n", SDL_GetError());
-        close();
+        close(synth);
         return -4;
     }
-    SDL_RenderSetLogicalSize(gSynth.renderer, WINDOW_WIDTH, WINDOW_HEIGHT);
+    SDL_RenderSetLogicalSize(synth.renderer, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     // Initialize Audio
     SDL_AudioSpec desired = {};
@@ -178,10 +147,11 @@ int main(int argc, char* argv[]) {
     desired.channels = NUM_SOUND_CHANNELS;
     desired.samples = SAMPLES_PER_BUFFER;
     desired.callback = audioCallback;
+    desired.userdata = &synth;
 
     SDL_AudioSpec actual = {};
-    gSynth.audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
-    if (gSynth.audioDevice <= 0) {
+    synth.audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);
+    if (synth.audioDevice <= 0) {
         SDL_Log("Could not open audio device: %s", SDL_GetError());
         return -2;
     }
@@ -197,20 +167,20 @@ int main(int argc, char* argv[]) {
     SDL_Log("size:        %d", actual.size);
     SDL_Log("------------------");
 
-    SDL_PauseAudioDevice(gSynth.audioDevice, 0);
+    SDL_PauseAudioDevice(synth.audioDevice, 0);
 
 #ifdef IS_WASM_BUILD
     const int simulate_infinite_loop = 1;
     const int fps = 60;
-    emscripten_set_main_loop_arg(loop, NULL, fps, simulate_infinite_loop);
+    emscripten_set_main_loop_arg(loop, &synth, fps, simulate_infinite_loop);
 #else
     // Main SDL Loop
     SDL_Log("Starting main loop");
-    while (!gSynth.loopShouldStop) {
-        loop(NULL);
+    while (!synth.loopShouldStop) {
+        loop(&synth);
     }
 #endif
 
-    close();
+    close(synth);
     return 0;
 }

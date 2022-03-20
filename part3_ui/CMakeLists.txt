@@ -13,6 +13,8 @@ include_directories(
 )
 
 add_executable(synth
+    oscillator.cpp
+    ui.cpp
     main.cpp
 )
 target_link_libraries(synth PRIVATE

@@ -70,7 +70,7 @@ to CMakeLists.txt and the new file `cmake/FindSDL2_ttf.cmake`.
 For the actual font, we will pull in [Lato](https://fonts.google.com/specimen/Lato)
 to the `assets/fonts/` directory.
 
-## Refactor - Moving the UI code out of main.cpp
+## Refactor - Moving code out of main.cpp
 
 Currently, all of our code is in `main.cpp`. However, things are getting a bit
 messy there, so in preparation for our UI work, let's create some new files.
@@ -96,10 +96,49 @@ extern Synth gSynth;
 
 Next, we'll create a new file `oscillator.h`, which will contain our
 oscillator class. We'll migrate oscillator code from `main.cpp` into this new class.
-This is a just a refactor (moving code to a new file), so we'll skip
-the details.
+
+```cpp
+struct Oscillator {
+    typedef double (*Fn)(double t, double freqHz);
+
+    void nextFn(void) {
+        if (fn == sine) {
+            fn = square;
+        } else if (fn == square) {
+            fn = triangle;
+        } else if (fn == triangle) {
+            fn = saw;
+        } else if (fn == saw) {
+            fn = whitenoise;
+        } else if (fn == whitenoise) {
+            fn = sine;
+        }
+    }
+
+    double getSample(double t, double freqHz) {
+        return fn(t, freqHz);
+    }
+
+    Fn fn = sine;
+};
+```
+
+We'll do the same thing with our temporary UI code from last part - we'll move it
+to a new file named `ui.h`.
+
+Now, all that's left in `main.cpp` is:
+
+* SDL code for managing the window, renderer, and audio device
+* SDL main loop
+* SDL event handling (mouse, keyboard)
+* The audio callback function
+
+In terms of refactoring, that should be good enough for now.
 
 ## Text
+
+One of the most basic parts of any UI is text, so let's see if we
+can add code that will render text at any position we want in the window.
 
 ## Drawing
 
