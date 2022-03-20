@@ -1,5 +1,6 @@
 #include "constants.h"
 #include "ui.h"
+#include "synth.h"
 #include "oscillator.h"
 #include <SDL_ttf.h>
 #include <stdio.h>
@@ -9,20 +10,12 @@
 #include <emscripten.h>
 #endif
 
-struct Synth {
-    SDL_Renderer* renderer;
-    SDL_Window* window;
-    SDL_AudioDeviceID audioDevice;
-    bool loopShouldStop = false;
-    bool start = false;
-    bool stop = false;
-    bool soundEnabled = false;
-    double freqHz = DEFAULT_FREQ;
-    Oscillator osc;
-    UI ui;
-};
-
 static Synth _synth;
+
+Synth::Synth()
+    : osc(new Oscillator())
+    , ui(new UI()) {
+}
 
 static void close() {
     SDL_Log("Closing");
@@ -45,7 +38,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     while (len > 0) {
         double y = 0.0;
         if (_synth.soundEnabled) {
-            y = VOLUME * _synth.osc.getSample(t, _synth.freqHz);
+            y = VOLUME * _synth.osc->getSample(t, _synth.freqHz);
         }
 
         // Populate left and right channels with the same sample
@@ -88,7 +81,7 @@ static void loop(void* arg) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 _synth.stop = true;
             } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                _synth.osc.nextFn();
+                _synth.osc->nextFn();
             }
         } else if (event.type == SDL_MOUSEMOTION) {
             constexpr double dFreqMaxHz = DEFAULT_FREQ;
@@ -101,12 +94,11 @@ static void loop(void* arg) {
         }
     }
 
-    _synth.ui.draw(_synth.osc, _synth.freqHz, _synth.soundEnabled);
+    _synth.ui->draw();
     SDL_RenderPresent(_synth.renderer);
 }
 
 int main(int argc, char* argv[]) {
-    // Initialize SDL
     if (0 != SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
         return -1;
@@ -117,7 +109,6 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    // Create a window
     _synth.window = SDL_CreateWindow(
         "Synth (Part 3)",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -170,12 +161,12 @@ int main(int argc, char* argv[]) {
 
     SDL_PauseAudioDevice(_synth.audioDevice, 0);
 
-    _synth.ui.init(_synth.renderer);
+    _synth.ui->init(&_synth);
 
 #ifdef IS_WASM_BUILD
     const int simulate_infinite_loop = 1;
     const int fps = 60;
-    emscripten_set_main_loop_arg(loop, &_synth, fps, simulate_infinite_loop);
+    emscripten_set_main_loop_arg(loop, NULL, fps, simulate_infinite_loop);
 #else
     // Main SDL Loop
     SDL_Log("Starting main loop");

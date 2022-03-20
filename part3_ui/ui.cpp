@@ -3,12 +3,13 @@
 
 static const SDL_Color WHITE = {255, 255, 255, 255};
 
-void UI::init(SDL_Renderer* renderer) {
-    _renderer = renderer;
+void UI::init(Synth* synth) {
+    _synth = synth;
+    _renderer = _synth->renderer;
     _font = TTF_OpenFont("../assets/fonts/Lato-Light.ttf", _fontSize);
 }
 
-void UI::drawWaveform(const Oscillator& osc, double freqHz, bool isPlaying) {
+void UI::drawWaveform() {
     SDL_SetRenderDrawColor(_renderer, 50, 205, 50, 255); // lime green
 
     int padding = (int)(0.1 * (double)WINDOW_WIDTH);
@@ -18,11 +19,11 @@ void UI::drawWaveform(const Oscillator& osc, double freqHz, bool isPlaying) {
     // from the waveform point at t = 0.
     const double periodS = 1.0 / DEFAULT_FREQ;
     for (double t = 0.0; t < periodS; t += dt) {
-        double y = osc.getSample(t, freqHz);
+        double y = _synth->osc->getSample(t, _synth->freqHz);
         // Convert (t,y) to 2-D coord (px,py)
         int px = padding + (int)((t / periodS) * drawingWidth);
         int py = padding + (int)((drawingWidth / 2) * (1.0 - y));
-        int radius = (isPlaying ? 4 : 1);
+        int radius = (_synth->soundEnabled ? 4 : 1);
         drawCircle(px, py, radius);
     }
 }
@@ -50,11 +51,11 @@ void UI::drawText(const char* text, int x, int y) {
     SDL_DestroyTexture(texture);
 }
 
-void UI::draw(const Oscillator& osc, double freqHz, bool isPlaying) {
+void UI::draw() {
     // Set background
     SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
     SDL_RenderClear(_renderer);
 
     drawText("Hello, World!", 10, 10);
-    drawWaveform(osc, freqHz, isPlaying);
+    drawWaveform();
 }
