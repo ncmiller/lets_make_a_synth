@@ -11,6 +11,7 @@ string(JOIN " " CXX_FLAGS_LIST
     -Wno-unused-parameter
     -Wno-unused-variable
     -Wno-unused-function
+    -Wno-c99-extensions
     -Wnull-dereference
     -Wdouble-promotion
     -Wformat=2

@@ -33,6 +33,7 @@ static void close() {
     if (_synth.window) {
         SDL_DestroyWindow(_synth.window);
     }
+    TTF_Quit();
     SDL_Quit();
 }
 
@@ -100,10 +101,7 @@ static void loop(void* arg) {
         }
     }
 
-    // Render frame with dark gray background
-    SDL_SetRenderDrawColor(_synth.renderer, 25, 25, 25, 255);
-    SDL_RenderClear(_synth.renderer);
-    _synth.ui.drawWaveform(_synth.osc, _synth.freqHz, _synth.soundEnabled);
+    _synth.ui.draw(_synth.osc, _synth.freqHz, _synth.soundEnabled);
     SDL_RenderPresent(_synth.renderer);
 }
 
@@ -111,6 +109,11 @@ int main(int argc, char* argv[]) {
     // Initialize SDL
     if (0 != SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+        return -1;
+    }
+
+    if (0 != TTF_Init()) {
+        SDL_Log("TTF_Init failed, error: %s", TTF_GetError());
         return -1;
     }
 

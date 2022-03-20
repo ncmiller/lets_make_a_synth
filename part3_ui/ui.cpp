@@ -1,6 +1,13 @@
 #include "constants.h"
 #include "ui.h"
 
+static const SDL_Color WHITE = {255, 255, 255, 255};
+
+void UI::init(SDL_Renderer* renderer) {
+    _renderer = renderer;
+    _font = TTF_OpenFont("../assets/fonts/Lato-Light.ttf", _fontSize);
+}
+
 void UI::drawWaveform(const Oscillator& osc, double freqHz, bool isPlaying) {
     SDL_SetRenderDrawColor(_renderer, 50, 205, 50, 255); // lime green
 
@@ -28,4 +35,26 @@ void UI::drawCircle(int centerX, int centerY, int radius) {
             }
         }
     }
+}
+
+void UI::drawText(const char* text, int x, int y) {
+    SDL_Surface* surface = TTF_RenderText_Blended(_font, text, WHITE);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+    SDL_FreeSurface(surface);
+
+    int w = 0;
+    int h = 0;
+    SDL_QueryTexture(texture, NULL, NULL, &w, &h);
+    SDL_Rect rect = {x, y, w, h};
+    SDL_RenderCopy(_renderer, texture, NULL, &rect);
+    SDL_DestroyTexture(texture);
+}
+
+void UI::draw(const Oscillator& osc, double freqHz, bool isPlaying) {
+    // Set background
+    SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
+    SDL_RenderClear(_renderer);
+
+    drawText("Hello, World!", 10, 10);
+    drawWaveform(osc, freqHz, isPlaying);
 }
