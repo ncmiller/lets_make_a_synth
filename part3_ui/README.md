@@ -75,60 +75,37 @@ to the `assets/fonts/` directory.
 Currently, all of our code is in `main.cpp`. However, things are getting a bit
 messy there, so in preparation for our UI work, let's create some new files.
 
-We'll start by creating a file `synth.h` that will contain a struct with
-all of the globally available data. All of the global variables we were using
-in `main.cpp` will go into this struct.
+We'll start by creating files `oscillator.h` and `oscillator.cpp` that will contain an
+`Oscillator` class.
 
 ```cpp
-struct Synth {
-    SDL_Renderer* renderer;
-    SDL_Window* window;
-    SDL_AudioDeviceID audioDevice;
-    bool loopShouldStop = false;
-    bool start = false;
-    bool stop = false;
-    bool soundEnabled = false;
-    double freqHz = DEFAULT_FREQ;
-    OscillatorFn oscFn = sine;
-};
-extern Synth gSynth;
-```
+class Oscillator {
+public:
+    void nextFn();
+    double getSample(double t, double freqHz) const;
 
-Next, we'll create a new file `oscillator.h`, which will contain our
-oscillator class. We'll migrate oscillator code from `main.cpp` into this new class.
-
-```cpp
-struct Oscillator {
-    typedef double (*Fn)(double t, double freqHz);
-
-    void nextFn(void) {
-        if (fn == sine) {
-            fn = square;
-        } else if (fn == square) {
-            fn = triangle;
-        } else if (fn == triangle) {
-            fn = saw;
-        } else if (fn == saw) {
-            fn = whitenoise;
-        } else if (fn == whitenoise) {
-            fn = sine;
-        }
-    }
-
-    double getSample(double t, double freqHz) {
-        return fn(t, freqHz);
-    }
-
-    Fn fn = sine;
+    OscillatorFn _fn = sine;
 };
 ```
 
-We'll do the same thing with our temporary UI code from last part - we'll move it
-to a new file named `ui.h`.
+Similarly, we'll create `ui.h` and `ui.cpp`, to contain a `UI` class.
 
-Now, all that's left in `main.cpp` is:
+```cpp
+class UI {
+public:
+    void init(SDL_Renderer* renderer) { _renderer = renderer; }
+    void drawCircle(int centerX, int centerY, int radius);
+    void drawWaveform(const Oscillator& osc, double freqHz, bool isPlaying);
 
-* SDL code for managing the window, renderer, and audio device
+private:
+    SDL_Renderer* _renderer = nullptr;
+};
+```
+
+With these new classes, we can move a good bit of code out of `main.cpp`.
+After doing that, all that's left in `main.cpp` is:
+
+* SDL code for opening and closing the window, renderer, and audio device
 * SDL main loop
 * SDL event handling (mouse, keyboard)
 * The audio callback function

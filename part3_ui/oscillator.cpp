@@ -2,8 +2,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-namespace Oscillator {
-
 double sine(double t, double freqHz) {
     t = fmod(t, 1.0 / freqHz);
     constexpr double twoPi = 2.0 * M_PI;
@@ -46,22 +44,20 @@ double whitenoise(double t, double freqHz) {
     return 2.0 * rand_normalized - 1.0;
 }
 
-void nextFn(Context& context) {
-    if (context.fn == sine) {
-        context.fn = square;
-    } else if (context.fn == square) {
-        context.fn = triangle;
-    } else if (context.fn == triangle) {
-        context.fn = saw;
-    } else if (context.fn == saw) {
-        context.fn = whitenoise;
-    } else if (context.fn == whitenoise) {
-        context.fn = sine;
+void Oscillator::nextFn() {
+    if (_fn == sine) {
+        _fn = square;
+    } else if (_fn == square) {
+        _fn = triangle;
+    } else if (_fn == triangle) {
+        _fn = saw;
+    } else if (_fn == saw) {
+        _fn = whitenoise;
+    } else if (_fn == whitenoise) {
+        _fn = sine;
     }
 }
 
-double getSample(const Context& context, double t, double freqHz) {
-    return context.fn(t, freqHz);
+double Oscillator::getSample(double t, double freqHz) const {
+    return _fn(t, freqHz);
 }
-
-} // namespace Oscillator
