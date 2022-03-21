@@ -13,9 +13,16 @@ public:
     void draw();
 
 private:
-    void drawCircle(int centerX, int centerY, int radius);
+    void drawFilledCircle(int centerX, int centerY, int radius);
     void drawWaveform();
     void drawText(const char* text, int x, int y);
+    void drawArc(
+        int centerX,
+        int centerY,
+        int radius,
+        int strokeWidth,
+        double startAngleRad, // clockwise
+        double endAngleRad);
 
     Synth* _synth;
     SDL_Renderer* _renderer;

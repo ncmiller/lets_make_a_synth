@@ -84,6 +84,7 @@ public:
     void nextFn();
     double getSample(double t, double freqHz) const;
 
+private:
     OscillatorFn _fn = sine;
 };
 ```
@@ -117,11 +118,116 @@ In terms of refactoring, that should be good enough for now.
 One of the most basic parts of any UI is text, so let's see if we
 can add code that will render text at any position we want in the window.
 
-## Drawing
+First, need to add this snippet to `main.cpp` to initialize SDL_TTF:
 
-## Plot
+```cpp
+    if (0 != TTF_Init()) {
+        SDL_Log("TTF_Init failed, error: %s", TTF_GetError());
+        return -1;
+    }
+```
+
+Next, we'll need to load a font when the `UI` class initializes:
+
+```cpp
+void UI::init(Synth* synth) {
+    _synth = synth;
+    _renderer = _synth->renderer;
+    _font = TTF_OpenFont("../assets/fonts/Lato-Light.ttf", _fontSize);
+}
+```
+
+We're also grabbing a pointer to the parent `Synth`, since currently
+the `drawWaveform` function requires data from the `Oscillator`, and other
+information like the frequency.
+
+Now we can create a function which will draw text a location
+on the screen.
+
+```cpp
+void UI::drawText(const char* text, int x, int y) {
+    SDL_Surface* surface = TTF_RenderText_Blended(_font, text, WHITE);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+    SDL_FreeSurface(surface);
+
+    int w = 0;
+    int h = 0;
+    SDL_QueryTexture(texture, NULL, NULL, &w, &h);
+    SDL_Rect rect = {x, y, w, h};
+    SDL_RenderCopy(_renderer, texture, NULL, &rect);
+    SDL_DestroyTexture(texture);
+}
+```
+
+The `SDL_ttf` relies on the older `SDL_Surface` type, so we have to first
+render the text to a surface, then convert that surface to a texture. Then
+finally we can copy the texture to the renderer and cleanup. There are
+probably ways to optimize this code, but it's probably a little too early to
+be worrying about that. We're just trying to get some text on the screen.
+
+And finally, to test it out, let's add some text to the window in `UI::draw`:
+
+```cpp
+void UI::draw() {
+    // Set background
+    SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
+    SDL_RenderClear(_renderer);
+
+    drawText("Hello, World!", 10, 10);
+    drawWaveform();
+}
+```
+
+And our text is right there. Aw yeah.
+
+<img src="img/HelloWorld.png" alt="Hello, World" width="360">
 
 ## Knob
+
+Every synthesizer out there has some kind of knob. This is going to be
+a key piece of UI for us.
+
+Again, we'll draw inspiration from the design of the Vital synth and try
+to create a knob that looks something like this:
+
+![Vital Knob](img/VitalKnob.png)
+
+We'll need to figure out:
+
+* how to draw the knob
+* how the user can interact with it
+* how the knob's value can be integrated with the synthesizer to control the sound
+
+### Drawing the Knob
+
+There are actually several different fundamental shapes we'll need to draw:
+
+* A filled circle (already done by `drawCircle`)
+* A thick arc, from about 7 o'clock to 5 o' clock, for the knob's range of position
+* A short thick line, for the visual indicator of the knob's position
+* A rounded rectangle with text in it, for the knob label
+
+First, we'll rename `drawCircle` to `drawFilledCircle`, since we'll soon be
+drawing non-filled circles.
+
+Next, let's try to draw an arc. This is kind of like drawing a partial
+non-filled circle. Also, we need to be able to specify the thickness in
+pixels. We'd like to create a function with this kind of signature:
+
+```cpp
+void drawArc(
+    int centerX,
+    int centerY,
+    int radius,
+    int strokeWidth,
+    double startAngleRadians,
+    double endAngleRadians);
+```
+
+
+### User Interaction with the Knob
+
+### Integrating the Knob with the Synth
 
 ## Horizontal Selector
 
@@ -130,6 +236,8 @@ can add code that will render text at any position we want in the window.
 ## Volume level
 
 ## Stereo panning
+
+## Plot
 
 ## Pitch transposition
 

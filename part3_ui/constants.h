@@ -1,6 +1,6 @@
 #pragma once
 
-#define WINDOW_WIDTH 360
+#define WINDOW_WIDTH 720
 #define WINDOW_HEIGHT 360
 #define DEFAULT_FREQ 220.0
 
