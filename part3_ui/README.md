@@ -118,7 +118,7 @@ In terms of refactoring, that should be good enough for now.
 One of the most basic parts of any UI is text, so let's see if we
 can add code that will render text at any position we want in the window.
 
-First, need to add this snippet to `main.cpp` to initialize SDL_TTF:
+First, we need to add this snippet to `main.cpp` to initialize SDL_TTF:
 
 ```cpp
     if (0 != TTF_Init()) {
@@ -133,7 +133,7 @@ Next, we'll need to load a font when the `UI` class initializes:
 void UI::init(Synth* synth) {
     _synth = synth;
     _renderer = _synth->renderer;
-    _font = TTF_OpenFont("../assets/fonts/Lato-Light.ttf", _fontSize);
+    _font = TTF_OpenFont("../assets/fonts/Lato-Regular.ttf", _fontSize);
 }
 ```
 
@@ -141,7 +141,7 @@ We're also grabbing a pointer to the parent `Synth`, since currently
 the `drawWaveform` function requires data from the `Oscillator`, and other
 information like the frequency.
 
-Now we can create a function which will draw text a location
+Now we can create a function which will draw text at a location
 on the screen.
 
 ```cpp
@@ -159,7 +159,7 @@ void UI::drawText(const char* text, int x, int y) {
 }
 ```
 
-The `SDL_ttf` relies on the older `SDL_Surface` type, so we have to first
+The `SDL_ttf` library relies on the older `SDL_Surface` type, so we have to first
 render the text to a surface, then convert that surface to a texture. Then
 finally we can copy the texture to the renderer and cleanup. There are
 probably ways to optimize this code, but it's probably a little too early to
@@ -212,18 +212,24 @@ drawing non-filled circles.
 
 Next, let's try to draw an arc. This is kind of like drawing a partial
 non-filled circle. Also, we need to be able to specify the thickness in
-pixels. We'd like to create a function with this kind of signature:
+pixels.
 
 ```cpp
-void drawArc(
-    int centerX,
-    int centerY,
-    int radius,
-    int strokeWidth,
-    double startAngleRadians,
-    double endAngleRadians);
+void UI::drawArc(
+        int centerX,
+        int centerY,
+        int radius,
+        int strokeWidth,
+        double startAngleRad,
+        double endAngleRad) {
+    SDL_SetRenderDrawColor(_renderer, 50, 205, 50, 255); // lime green
+    for (double angle = startAngleRad; angle < endAngleRad; angle += (M_PI / 360.0)) {
+        int px = (int)((double)radius * cos(angle));
+        int py = -1 * (int)((double)radius * sin(angle));
+        drawFilledCircle(centerX + px, centerY + py, strokeWidth);
+    }
+}
 ```
-
 
 ### User Interaction with the Knob
 

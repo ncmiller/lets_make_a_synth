@@ -13,19 +13,22 @@ public:
     void draw();
 
 private:
-    void drawFilledCircle(int centerX, int centerY, int radius);
+    void setDrawColor(uint32_t color);
+    void drawFilledCircle(int16_t centerX, int16_t centerY, int16_t radius, uint32_t color);
     void drawWaveform();
     void drawText(const char* text, int x, int y);
     void drawArc(
-        int centerX,
-        int centerY,
-        int radius,
-        int strokeWidth,
-        double startAngleRad, // clockwise
-        double endAngleRad);
+        int16_t centerX,
+        int16_t centerY,
+        int16_t radius,
+        int16_t strokeWidth,
+        int16_t startAngleDeg, // counter-clockwise, starting at x=1,y=0
+        int16_t endAngleDeg,
+        uint32_t colorFg,
+        uint32_t colorBg);
 
-    Synth* _synth;
-    SDL_Renderer* _renderer;
+    Synth* _synth = nullptr;
+    SDL_Renderer* _renderer = nullptr;
     TTF_Font* _font = nullptr;
     int _fontSize = DEFAULT_TEXT_FONT_SIZE;
 };

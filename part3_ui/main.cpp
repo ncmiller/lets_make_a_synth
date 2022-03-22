@@ -122,6 +122,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a renderer
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     _synth.renderer = SDL_CreateRenderer(
             _synth.window,
             -1,
