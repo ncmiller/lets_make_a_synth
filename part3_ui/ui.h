@@ -1,15 +1,14 @@
 #pragma once
 
 #include <SDL.h>
-#include <SDL_ttf.h>
-#include "synth.h"
-#include "oscillator.h"
+
+struct Synth;
 
 #define DEFAULT_TEXT_FONT_SIZE 16
 
 class UI {
 public:
-    void init(Synth* synth);
+    bool init(Synth* synth);
     void draw();
 
 private:
@@ -28,8 +27,5 @@ private:
         uint32_t colorBg);
 
     Synth* _synth = nullptr;
-    SDL_Renderer* _renderer = nullptr;
-    TTF_Font* _font = nullptr;
-    int _fontSize = DEFAULT_TEXT_FONT_SIZE;
 };
 

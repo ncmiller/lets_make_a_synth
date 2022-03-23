@@ -44,6 +44,11 @@ double whitenoise(double t, double freqHz) {
     return 2.0 * rand_normalized - 1.0;
 }
 
+bool Oscillator::init(Synth* synth) {
+    _synth = synth;
+    return true;
+}
+
 void Oscillator::nextFn() {
     if (_fn == sine) {
         _fn = square;

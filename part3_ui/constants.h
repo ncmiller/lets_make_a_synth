@@ -6,8 +6,6 @@
 
 // Audio Configuration
 #define SAMPLE_RATE_HZ 48000
-#define NUM_SOUND_CHANNELS 2
-#define SAMPLE_FORMAT AUDIO_F32SYS // 32-bit float
 #define VOLUME 0.025 // max volume, about -32 dB
 #ifdef IS_WASM_BUILD
 #define SAMPLES_PER_BUFFER 256 // (256 / 48000) = 5.333 ms latency
