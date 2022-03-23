@@ -59,17 +59,6 @@ for this synth project.
 I'm completely new to designing UI frameworks, so this could be a complete
 disaster. Let's go!
 
-## Integrate SDL_ttf and Lato font
-
-We'll need a library to be able to render text to the window.
-SDL includes a ttf library, but we need to do some extra work in CMake to use
-it. I'll spare you the boring details of integrating the library.
-If you're really interested, check out the changes
-to CMakeLists.txt and the new file `cmake/FindSDL2_ttf.cmake`.
-
-For the actual font, we will pull in [Lato](https://fonts.google.com/specimen/Lato)
-to the `assets/fonts/` directory.
-
 ## Refactor - Moving code out of main.cpp
 
 Currently, all of our code is in `main.cpp`. However, things are getting a bit
@@ -112,6 +101,36 @@ After doing that, all that's left in `main.cpp` is:
 * The audio callback function
 
 In terms of refactoring, that should be good enough for now.
+
+## Libraries to help design a UI
+
+When I started this part, I thought I'd be able to draw the entire UI using
+only the 2D accelerated graphics provided by SDL2. They give you functions
+to draw pixels, lines, and rectangles, and from there, you can in theory
+create any kind of UI you want. Or so I thought.
+
+In reality, there's a lot more to it. Drawing shapes like filled circles and
+rounded rectangles is not exactly easy. In my attempt to do this, I made some
+progress, but the end result looked terrible, mostly due to aliasing, or
+"jaggies". It didn't look smooth and clean, and there was a visible and
+disgusting stairstep pattern on all circles and lines. As I began to research
+anti-aliasing algorithms, it became clear that I was not having fun, and
+I should just find a library that can help me draw nice, clean, anti-aliased
+shapes, and has a nice API.
+
+In the end, I decided to go with [NanoVG](https://github.com/memononen/nanovg), a vector-drawing library in C. This
+library is based around OpenGL. So there's an extra bit of work to render
+using OpenGL and start drawing with nanovg. There's a nice example
+[gist](https://gist.github.com/xeekworx/4c9a95c5eb67a1d3fc1fd35bacf84236)
+that explains how to setup SDL + GLAD + OpenGL + NanoVG in C++.
+
+So it makes sense at this point
+to completely scrap the old UI and render code, and to start from scratch
+(which is not a huge loss, since we didn't have much of a UI to begin with).
+
+## Setting up OpenGL and NanoVG
+
+TODO
 
 ## Text
 
