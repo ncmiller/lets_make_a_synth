@@ -1,4 +1,5 @@
 #include "synth.h"
+#include <glad/glad.h>
 #include <nanovg.h>
 #include <stdio.h>
 #include <assert.h>
