@@ -1,4 +1,5 @@
 #include "synth.h"
+#include <nanovg.h>
 #include <stdio.h>
 #include <assert.h>
 #include <algorithm>
@@ -45,7 +46,7 @@ static void audioCallback(void* userdata, Uint8* stream, int len) {
     }
 }
 
-// TODO - Move this somewhere else, maybe hide SDL stuff in sdlwrapper
+// TODO - Move this somewhere else
 static void checkInputEvents(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {

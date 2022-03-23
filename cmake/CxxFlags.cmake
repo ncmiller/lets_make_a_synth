@@ -12,6 +12,8 @@ string(JOIN " " CXX_FLAGS_LIST
     -Wno-unused-variable
     -Wno-unused-function
     -Wno-c99-extensions
+    -Wno-gnu-anonymous-struct
+    -Wno-nested-anon-types
     -Wnull-dereference
     -Wdouble-promotion
     -Wformat=2
