@@ -2,6 +2,10 @@
 #include "ui.h"
 #include "synth.h"
 #include <glad/glad.h>
+#include <nanovg.h>
+#define NANOVG_GL3_IMPLEMENTATION
+#include <nanovg_gl.h>
+#include <nanovg_gl_utils.h>
 
 constexpr uint32_t color32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     // 0xAABBGGRR
@@ -29,6 +33,12 @@ constexpr uint32_t ALMOST_WHITE = color32(214, 214, 214, 255);
 
 bool UI::init(Synth* synth) {
     _synth = synth;
+    int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
+    _nvgContext = nvgCreateGL3(flags);
+    if (NULL == _nvgContext) {
+        SDL_Log("Failed to create NVG Context");
+        return false;
+    }
     return true;
 }
 
@@ -90,4 +100,30 @@ void UI::draw() {
     drawText("Hello, World!", 10, 10);
     drawArc(100, 100, 25, 4, 60, 120, KNOB_ACTIVE_PURPLE, KNOB_BG);
     drawWaveform();
+
+    // BEGIN NANOVG DRAWING:
+    nvgBeginFrame(_nvgContext, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
+
+    // DRAW A ROUND RECTANGLE WITH AN OUTLINE:
+    float rect_w = 250.f, rect_h = 250.f;
+    NVGcolor nvg_stroke_color = nvgRGBAf(0.f, 0.f, 0.f, 1.f);
+    NVGcolor nvg_fill_color = nvgRGBAf(0.f, 1.f, 0.1f, 1.f);
+
+    nvgBeginPath(_nvgContext);
+
+    nvgRoundedRectVarying(
+        _nvgContext,
+        (float)WINDOW_WIDTH / 2.f - rect_w / 2.f, WINDOW_HEIGHT / 2.f - rect_h / 2.f,
+        rect_w, rect_h,
+        30.f, 8.f, 30.f, 8.f
+    );
+
+    nvgFillColor(_nvgContext, nvg_fill_color);
+    nvgFill(_nvgContext);
+    nvgStrokeWidth(_nvgContext, 2.f);
+    nvgStrokeColor(_nvgContext, nvg_stroke_color);
+    nvgStroke(_nvgContext);
+
+    // END NANOVG DRAWING:
+    nvgEndFrame(_nvgContext);
 }

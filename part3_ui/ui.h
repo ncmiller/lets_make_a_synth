@@ -1,8 +1,9 @@
 #pragma once
 
-#include <SDL.h>
+#include <stdint.h>
 
 struct Synth;
+struct NVGcontext;
 
 #define DEFAULT_TEXT_FONT_SIZE 16
 
@@ -27,5 +28,6 @@ private:
         uint32_t colorBg);
 
     Synth* _synth = nullptr;
+    NVGcontext* _nvgContext = nullptr;
 };
 
