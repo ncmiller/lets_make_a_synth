@@ -1,6 +1,9 @@
 #include "synth.h"
 #include <glad/glad.h>
+#define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
+#include <nanovg_gl.h>
+#include <nanovg_gl_utils.h>
 #include <stdio.h>
 #include <assert.h>
 #include <algorithm>
@@ -81,7 +84,7 @@ static void loopOnce(void* arg) {
     checkInputEvents();
     // TODO - update
     _synth->ui.draw();
-    SDL_RenderPresent(_synth->sdl._renderer);
+    SDL_GL_SwapWindow(_synth->sdl._window);
 }
 
 int main(int argc, char* argv[]) {

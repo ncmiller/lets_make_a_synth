@@ -1,4 +1,5 @@
 #include "sdlwrapper.h"
+#include <glad/glad.h>
 
 #define SAMPLE_FORMAT AUDIO_F32SYS // 32-bit float
 #define NUM_SOUND_CHANNELS 2
@@ -24,11 +25,28 @@ bool SDLWrapper::initWindow(const char* title, uint32_t widthPx, uint32_t height
         return false;
     }
 
+    // CONFIGURE OPENGL ATTRIBUTES USING SDL:
+    int context_flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+#ifdef _DEBUG
+    context_flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
+#endif
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, context_flags);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
     _window = SDL_CreateWindow(
         title,
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (int)widthPx, (int)heightPx,
-        0
+        SDL_WINDOW_OPENGL
     );
     if (_window == nullptr) {
         SDL_Log("Could not create window: %s", SDL_GetError());
@@ -38,15 +56,23 @@ bool SDLWrapper::initWindow(const char* title, uint32_t widthPx, uint32_t height
 }
 
 bool SDLWrapper::initRenderer(uint32_t widthPx, uint32_t heightPx) {
-    _renderer = SDL_CreateRenderer(
-            _window,
-            -1,
-            SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (_renderer == nullptr) {
-        SDL_Log("SDL_CreateRenderer Error: %s\n", SDL_GetError());
+    _gl_context = SDL_GL_CreateContext(_window);
+    if (_gl_context == nullptr) {
+        SDL_Log("Failed to create OpenGL context: %s", SDL_GetError());
         return false;
     }
-    SDL_RenderSetLogicalSize(_renderer, (int)widthPx, (int)heightPx);
+    SDL_GL_MakeCurrent(_window, _gl_context);
+
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+        SDL_Log("Failed to initialize GLAD");
+        return false;
+    }
+
+    SDL_Log("-------------------");
+    SDL_Log("OpenGL Version: %d.%d", GLVersion.major, GLVersion.minor);
+    SDL_Log("OpenGL Shading Language Version: %s", (char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
+    SDL_Log("OpenGL Vendor: %s", (char*)glGetString(GL_VENDOR));
+    SDL_Log("OpenGL Renderer: %s", (char*)glGetString(GL_RENDERER));
     return true;
 }
 
@@ -83,8 +109,8 @@ bool SDLWrapper::initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL
 
 SDLWrapper::~SDLWrapper() {
     SDL_CloseAudioDevice(_audioDevice);
-    if (_renderer) {
-        SDL_DestroyRenderer(_renderer);
+    if (_gl_context) {
+        SDL_GL_DeleteContext(_gl_context);
     }
     if (_window) {
         SDL_DestroyWindow(_window);

@@ -1,6 +1,7 @@
 #include "constants.h"
 #include "ui.h"
 #include "synth.h"
+#include <glad/glad.h>
 
 constexpr uint32_t color32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     // 0xAABBGGRR
@@ -83,7 +84,8 @@ void UI::drawArc(
 void UI::draw() {
     // Set background
     setDrawColor(BG_GREY);
-    SDL_RenderClear(_synth->sdl._renderer);
+    glClearColor(1.f, 1.f, 1.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     drawText("Hello, World!", 10, 10);
     drawArc(100, 100, 25, 4, 60, 120, KNOB_ACTIVE_PURPLE, KNOB_BG);
