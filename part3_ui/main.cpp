@@ -52,6 +52,8 @@ static void checkInputEvents(void) {
         if (event.type == SDL_QUIT) {
             _synth->shouldQuit = true;
         } else if (event.key.keysym.sym == SDLK_ESCAPE) {
+            // TODO - sometimes we get here even though I didn't hit escape
+            SDL_Log("Escape key");
             _synth->shouldQuit = true;
         } else if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
@@ -77,7 +79,6 @@ static void checkInputEvents(void) {
 
 static void loopOnce(void* arg) {
     checkInputEvents();
-    // TODO - update
     _synth->ui.draw();
     SDL_GL_SwapWindow(_synth->sdl._window);
 }

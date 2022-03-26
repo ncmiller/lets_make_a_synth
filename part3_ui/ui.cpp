@@ -6,124 +6,140 @@
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg_gl.h>
 #include <nanovg_gl_utils.h>
+#include <math.h>
+#include <assert.h>
 
-constexpr uint32_t color32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    // 0xAABBGGRR
-    return (uint32_t)((a << 24) | (b << 16) | (g << 8) | (r << 0));
-}
+#define DEFAULT_FONT "../assets/fonts/Lato-Regular.ttf"
 
-constexpr SDL_Color sdlColor(uint32_t color32) {
-    return {
-        .r = (uint8_t)((color32 >> 0) & 0xFF),
-        .g = (uint8_t)((color32 >> 8) & 0xFF),
-        .b = (uint8_t)((color32 >> 16) & 0xFF),
-        .a = (uint8_t)((color32 >> 24) & 0xFF),
+constexpr NVGcolor RGBAtoColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    return (NVGcolor){
+        .r = (float)r / 255.0f,
+        .g = (float)g / 255.0f,
+        .b = (float)b / 255.0f,
+        .a = (float)a / 255.0f
     };
 }
 
-constexpr uint32_t BG_GREY = color32(39,42,45,255);
-constexpr uint32_t OSC_ENABLED_GREY = color32(77,79,82,255);
-constexpr uint32_t KNOB_BG = BG_GREY;
-constexpr uint32_t KNOB_ACTIVE_PURPLE = color32(164,137,248,255);
-constexpr uint32_t KNOB_INACTIVE_GREY = OSC_ENABLED_GREY;
-constexpr uint32_t KNOB_LABEL_BG = color32(63,66,69,255);
-constexpr uint32_t DARK_GREY = color32(25, 25, 25, 255);
-constexpr uint32_t LIME_GREEN = color32(50, 205, 50, 255);
-constexpr uint32_t ALMOST_WHITE = color32(214, 214, 214, 255);
+constexpr float DegToRad(float degrees) {
+    return degrees / 180.f * (float)M_PI;
+}
+
+void ClearBackground(NVGcolor color) {
+    glClearColor(color.r, color.g, color.b, color.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+static constexpr NVGcolor BG_GREY = RGBAtoColor(39,42,45,255);
+static constexpr NVGcolor OSC_ENABLED_GREY = RGBAtoColor(77,79,82,255);
+static constexpr NVGcolor KNOB_BG = BG_GREY;
+static constexpr NVGcolor KNOB_ACTIVE_PURPLE = RGBAtoColor(164,137,248,255);
+static constexpr NVGcolor KNOB_INACTIVE_GREY = OSC_ENABLED_GREY;
+static constexpr NVGcolor KNOB_LABEL_BG = RGBAtoColor(63,66,69,255);
+static constexpr NVGcolor DARK_GREY = RGBAtoColor(25, 25, 25, 255);
+static constexpr NVGcolor LIME_GREEN = RGBAtoColor(50, 205, 50, 255);
+static constexpr NVGcolor ALMOST_WHITE = RGBAtoColor(214, 214, 214, 255);
+static constexpr NVGcolor WHITE = RGBAtoColor(255, 255, 255, 255);
 
 bool UI::init(Synth* synth) {
     _synth = synth;
     int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
-    _nvgContext = nvgCreateGL3(flags);
-    if (NULL == _nvgContext) {
+    _nvg = nvgCreateGL3(flags);
+    if (NULL == _nvg) {
         SDL_Log("Failed to create NVG Context");
         return false;
     }
+    _fontId = nvgCreateFont(_nvg, "default", DEFAULT_FONT);
+    if (_fontId < 0) {
+        SDL_Log("Failed to load font: %s", DEFAULT_FONT);
+        return false;
+    }
+    nvgFontFaceId(_nvg, _fontId);
     return true;
 }
 
-void UI::setDrawColor(uint32_t c32) {
-    SDL_Color color = sdlColor(c32);
-    // SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, color.a);
+void UI::drawFilledCircle(float centerX, float centerY, float radius, NVGcolor color) {
+    nvgBeginPath(_nvg);
+    nvgCircle(_nvg, centerX, centerY, radius);
+    nvgFillColor(_nvg, color);
+    nvgFill(_nvg);
+}
+
+void UI::drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color) {
+    nvgBeginPath(_nvg);
+    nvgArc(_nvg, cx, cy, radius, DegToRad(startDeg), DegToRad(endDeg), NVG_CW);
+    nvgStrokeWidth(_nvg, strokePx);
+    nvgStrokeColor(_nvg, color);
+    nvgStroke(_nvg);
+}
+
+void UI::drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color) {
+    nvgBeginPath(_nvg);
+    nvgMoveTo(_nvg, x1, y1);
+    nvgLineTo(_nvg, x2, y2);
+    nvgStrokeWidth(_nvg, strokeWidthPx);
+    nvgStrokeColor(_nvg, color);
+    nvgStroke(_nvg);
+}
+
+void UI::drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width, std::optional<float> height) {
+    nvgBeginPath(_nvg);
+
+    // Get bounds of rendered text
+    float bounds[4] = {};
+    nvgFontSize(_nvg, 12);
+    nvgTextBounds(_nvg, 0, 0, text, NULL, bounds);
+    float textWidth = bounds[2] - bounds[0];
+    float textHeight = bounds[3] - bounds[1];
+
+    // Determine dimensions of rounded rectangle containing text
+    float rh = (height ? height.value() : (2.f * textHeight));
+    float rw = (width ? width.value() : (rh + textWidth));
+    float radius = rh / 2.f;
+
+    nvgRoundedRect(_nvg, x, y, rw, rh, radius);
+    nvgFillColor(_nvg, bgColor);
+    nvgFill(_nvg);
+
+    // Position text in middle of rounded rect
+    nvgTextAlign(_nvg, NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER);
+    nvgFillColor(_nvg, fgColor);
+    nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
+}
+
+void UI::drawKnob(float x, float y, float level) {
+    const float r = 25.f; // radius
+    const float stroke = 3.f;
+    const float startDeg = 120.f;
+    const float endDeg = 420.f;
+    const float levelDeg = startDeg + (endDeg - startDeg) * level;
+
+    float cx = x + r; // center of circle
+    float cy = y + r;
+
+    drawFilledCircle(cx, cy, r, KNOB_BG);
+    drawArc(cx, cy, r - 1.5f*stroke, startDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
+    drawArc(cx, cy, r - 1.5f*stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+
+    // Draw line for knob level indicator
+    float outerRadius = r - 1.5f*stroke;
+    nvgSave(_nvg);
+    nvgTranslate(_nvg, cx, cy);
+    nvgRotate(_nvg, DegToRad(levelDeg));
+    drawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
+    nvgRestore(_nvg);
+
+    drawLabel("LEVEL", x, y + 2.f*r + 8, KNOB_LABEL_BG, WHITE, 2.f*r, 20);
 }
 
 void UI::drawWaveform() {
-    int16_t padding = (int)(0.1 * (double)WINDOW_WIDTH);
-    int16_t drawingWidth = WINDOW_WIDTH - 2 * padding;
-    int16_t drawingHeight = WINDOW_HEIGHT - 2 * padding;
-    const double periodS = 1.0 / DEFAULT_FREQ;
-    int16_t lastx = -1;
-    int16_t lasty = -1;
-    for (double t = 0.0; t < periodS; t += dt) {
-        double y = _synth->osc.getSample(t, _synth->freqHz);
-        // Convert (t,y) to 2-D coord (px,py)
-        int16_t px = padding + (int16_t)((t / periodS) * drawingWidth);
-        int16_t py = padding + (int16_t)((drawingHeight / 2) * (1.0 - y));
-        uint8_t widthPx = (_synth->soundEnabled ? 4 : 1);
-        if (lastx != -1) {
-            // thickLineColor(_renderer, lastx, lasty, px, py, widthPx, LIME_GREEN);
-        }
-        lastx = px;
-        lasty = py;
-    }
-}
-
-void UI::drawFilledCircle(int16_t centerX, int16_t centerY, int16_t radius, uint32_t color) {
-    // filledCircleColor(_renderer, (int16_t)centerX, (int16_t)centerY, (int16_t)radius, color);
-    // aaellipseColor(_renderer, (int16_t)centerX, (int16_t)centerY, (int16_t)radius+1, (int16_t)radius, color);
-    // aacircleColor(_renderer, (int16_t)centerX, (int16_t)centerY, (int16_t)radius, color);
-}
-
-void UI::drawText(const char* text, int x, int y) {
-}
-
-void UI::drawArc(
-        int16_t centerX,
-        int16_t centerY,
-        int16_t radius,
-        int16_t strokeWidth,
-        int16_t startAngleDeg,
-        int16_t endAngleDeg,
-        uint32_t colorFg,
-        uint32_t colorBg) {
-    drawFilledCircle(centerX, centerY, radius+strokeWidth/2, colorFg);
-    drawFilledCircle(centerX, centerY, radius-strokeWidth/2, colorBg);
-    // filledPieColor(_renderer, centerX, centerY, radius+strokeWidth+1, startAngleDeg, endAngleDeg, colorBg);
 }
 
 void UI::draw() {
-    // Set background
-    setDrawColor(BG_GREY);
-    glClearColor(1.f, 1.f, 1.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    ClearBackground(OSC_ENABLED_GREY);
 
-    drawText("Hello, World!", 10, 10);
-    drawArc(100, 100, 25, 4, 60, 120, KNOB_ACTIVE_PURPLE, KNOB_BG);
-    drawWaveform();
+    nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
-    // BEGIN NANOVG DRAWING:
-    nvgBeginFrame(_nvgContext, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
+    drawKnob(100.f, 100.f, .7f);
 
-    // DRAW A ROUND RECTANGLE WITH AN OUTLINE:
-    float rect_w = 250.f, rect_h = 250.f;
-    NVGcolor nvg_stroke_color = nvgRGBAf(0.f, 0.f, 0.f, 1.f);
-    NVGcolor nvg_fill_color = nvgRGBAf(0.f, 1.f, 0.1f, 1.f);
-
-    nvgBeginPath(_nvgContext);
-
-    nvgRoundedRectVarying(
-        _nvgContext,
-        (float)WINDOW_WIDTH / 2.f - rect_w / 2.f, WINDOW_HEIGHT / 2.f - rect_h / 2.f,
-        rect_w, rect_h,
-        30.f, 8.f, 30.f, 8.f
-    );
-
-    nvgFillColor(_nvgContext, nvg_fill_color);
-    nvgFill(_nvgContext);
-    nvgStrokeWidth(_nvgContext, 2.f);
-    nvgStrokeColor(_nvgContext, nvg_stroke_color);
-    nvgStroke(_nvgContext);
-
-    // END NANOVG DRAWING:
-    nvgEndFrame(_nvgContext);
+    nvgEndFrame(_nvg);
 }

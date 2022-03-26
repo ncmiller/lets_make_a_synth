@@ -1,11 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+#include <nanovg.h>
+#include <optional>
 
 struct Synth;
 struct NVGcontext;
-
-#define DEFAULT_TEXT_FONT_SIZE 16
+struct NVGColor;
 
 class UI {
 public:
@@ -13,21 +14,18 @@ public:
     void draw();
 
 private:
-    void setDrawColor(uint32_t color);
-    void drawFilledCircle(int16_t centerX, int16_t centerY, int16_t radius, uint32_t color);
+    // Primitive drawing
+    void drawFilledCircle(float centerX, float centerY, float radius, NVGcolor color);
+    void drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color);
+    void drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color);
+
+    // Synth widgets
+    void drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
+    void drawKnob(float x, float y, float level);
     void drawWaveform();
-    void drawText(const char* text, int x, int y);
-    void drawArc(
-        int16_t centerX,
-        int16_t centerY,
-        int16_t radius,
-        int16_t strokeWidth,
-        int16_t startAngleDeg, // counter-clockwise, starting at x=1,y=0
-        int16_t endAngleDeg,
-        uint32_t colorFg,
-        uint32_t colorBg);
 
     Synth* _synth = nullptr;
-    NVGcontext* _nvgContext = nullptr;
+    NVGcontext* _nvg = nullptr;
+    int _fontId = 0;
 };
 

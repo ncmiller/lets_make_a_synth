@@ -1,7 +1,7 @@
 #pragma once
 
-#define WINDOW_WIDTH 720
-#define WINDOW_HEIGHT 360
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
 #define DEFAULT_FREQ 220.0
 
 // Audio Configuration

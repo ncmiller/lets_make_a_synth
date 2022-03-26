@@ -15,7 +15,7 @@ string(JOIN " " CXX_FLAGS_LIST
     -Wno-gnu-anonymous-struct
     -Wno-nested-anon-types
     -Wnull-dereference
-    -Wdouble-promotion
+    -Wno-double-promotion
     -Wformat=2
     -pedantic
     -Werror
