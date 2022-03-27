@@ -9,8 +9,6 @@
 #include <math.h>
 #include <assert.h>
 
-#define DEFAULT_FONT "../assets/fonts/Lato-Regular.ttf"
-
 constexpr NVGcolor RGBAtoColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     return (NVGcolor){
         .r = (float)r / 255.0f,
@@ -24,11 +22,11 @@ constexpr float DegToRad(float degrees) {
     return degrees / 180.f * (float)M_PI;
 }
 
-void ClearBackground(NVGcolor color) {
-    glClearColor(color.r, color.g, color.b, color.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-}
-
+static const char* DEFAULT_FONT = "../assets/fonts/Lato-Regular.ttf";
+static constexpr float LABEL_HEIGHT = 20.f;
+static constexpr float KNOB_WIDTH = 50.f;
+static constexpr float KNOB_LABEL_GAP = 8.f;
+static constexpr float KNOB_HEIGHT = (KNOB_WIDTH + KNOB_LABEL_GAP + LABEL_HEIGHT);
 static constexpr NVGcolor BG_GREY = RGBAtoColor(39,42,45,255);
 static constexpr NVGcolor OSC_ENABLED_GREY = RGBAtoColor(77,79,82,255);
 static constexpr NVGcolor KNOB_BG = BG_GREY;
@@ -37,8 +35,15 @@ static constexpr NVGcolor KNOB_INACTIVE_GREY = OSC_ENABLED_GREY;
 static constexpr NVGcolor KNOB_LABEL_BG = RGBAtoColor(63,66,69,255);
 static constexpr NVGcolor DARK_GREY = RGBAtoColor(25, 25, 25, 255);
 static constexpr NVGcolor LIME_GREEN = RGBAtoColor(50, 205, 50, 255);
+static constexpr NVGcolor BLACK = RGBAtoColor(0, 0, 0, 255);
 static constexpr NVGcolor ALMOST_WHITE = RGBAtoColor(214, 214, 214, 255);
 static constexpr NVGcolor WHITE = RGBAtoColor(255, 255, 255, 255);
+
+void ClearBackground(NVGcolor color) {
+    glClearColor(color.r, color.g, color.b, color.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
 
 bool UI::init(Synth* synth) {
     _synth = synth;
@@ -106,12 +111,12 @@ void UI::drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolo
     nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
 }
 
-void UI::drawKnob(float x, float y, float level) {
-    const float r = 25.f; // radius
-    const float stroke = 3.f;
-    const float startDeg = 120.f;
-    const float endDeg = 420.f;
-    const float levelDeg = startDeg + (endDeg - startDeg) * level;
+void UI::drawKnob(const char* text, float x, float y, float level) {
+    constexpr float r = KNOB_WIDTH / 2.f; // radius
+    constexpr float stroke = 3.f;
+    constexpr float startDeg = 120.f;
+    constexpr float endDeg = 420.f;
+    float levelDeg = startDeg + (endDeg - startDeg) * level;
 
     float cx = x + r; // center of circle
     float cy = y + r;
@@ -128,18 +133,45 @@ void UI::drawKnob(float x, float y, float level) {
     drawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
     nvgRestore(_nvg);
 
-    drawLabel("LEVEL", x, y + 2.f*r + 8, KNOB_LABEL_BG, WHITE, 2.f*r, 20);
+    drawLabel(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
 }
 
 void UI::drawWaveform() {
 }
 
+void UI::drawOscillator(float x, float y) {
+    nvgBeginPath(_nvg);
+    // Oscillator background
+    float pad = 10.f;
+    float num_knobs = 2.f;
+    float rw = num_knobs * (pad + KNOB_WIDTH) + pad;
+    float rh = 2.f * pad + KNOB_HEIGHT;
+
+    nvgRoundedRect(_nvg, x, y, rw, rh, 5.f);
+    nvgFillColor(_nvg, OSC_ENABLED_GREY);
+    nvgStrokeWidth(_nvg, 2.f);
+    nvgStrokeColor(_nvg, DARK_GREY);
+    nvgFill(_nvg);
+    nvgStroke(_nvg);
+
+    // Knobs
+    float xoff = x + pad;
+    float yoff = y + pad;
+    drawKnob("LEVEL", xoff, yoff, .7f);
+    xoff += (KNOB_WIDTH + pad);
+    drawKnob("PAN", xoff, yoff, .5f);
+}
+
 void UI::draw() {
-    ClearBackground(OSC_ENABLED_GREY);
+    ClearBackground(BG_GREY);
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
-    drawKnob(100.f, 100.f, .7f);
+    drawOscillator(100.f, 100.f);
+    // coarse pitch
+    // fine pitch
+    // piano roll
+    // waveform
 
     nvgEndFrame(_nvg);
 }

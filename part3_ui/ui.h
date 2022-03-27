@@ -21,7 +21,8 @@ private:
 
     // Synth widgets
     void drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
-    void drawKnob(float x, float y, float level);
+    void drawKnob(const char* text, float x, float y, float level);
+    void drawOscillator(float x, float y);
     void drawWaveform();
 
     Synth* _synth = nullptr;
