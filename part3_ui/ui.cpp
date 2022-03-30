@@ -59,7 +59,53 @@ bool UI::init(Synth* synth) {
         return false;
     }
     nvgFontFaceId(_nvg, _fontId);
+    _idStack.push_back(std::hash<const char*>{}("root"));
     return true;
+}
+
+size_t UI::hashCombine(size_t seed, size_t value) {
+    return (seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
+}
+
+size_t UI::pushId(const char* str) {
+    size_t seed = _idStack.back();
+    size_t id = hashCombine(seed, std::hash<const char*>{}(str));
+    _idStack.push_back(id);
+    return id;
+}
+
+void UI::popId() {
+    _idStack.pop_back();
+}
+
+bool UI::mouseInRect(float x1, float y1, float x2, float y2) {
+    return ((_mouseX >= x1 && _mouseX <= x2) &&
+            (_mouseY >= y1 && _mouseY <= y2));
+}
+
+bool UI::isActive(size_t id) {
+    return (id == _activeId);
+}
+
+bool UI::activeExists() {
+    return (_activeId != 0);
+}
+
+bool UI::isPreactive(size_t id) {
+    return (id == _preactiveId);
+}
+
+void UI::onControlEvent(SDL_Event event) {
+    if (event.type == SDL_MOUSEBUTTONDOWN) {
+        _mouseButtonDown = true;
+    } else if (event.type == SDL_MOUSEBUTTONUP) {
+        _mouseButtonUp = true;
+    } else if (event.type == SDL_MOUSEMOTION) {
+        _mouseX = event.motion.x;
+        float newMouseY = event.motion.y;
+        _mouseYDelta = (newMouseY - _mouseY);
+        _mouseY = newMouseY;
+    }
 }
 
 void UI::drawFilledCircle(float centerX, float centerY, float radius, NVGcolor color) {
@@ -86,7 +132,7 @@ void UI::drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, N
     nvgStroke(_nvg);
 }
 
-void UI::drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width, std::optional<float> height) {
+void UI::label(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width, std::optional<float> height) {
     nvgBeginPath(_nvg);
 
     // Get bounds of rendered text
@@ -111,42 +157,81 @@ void UI::drawLabel(const char* text, float x, float y, NVGcolor bgColor, NVGcolo
     nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
 }
 
-void UI::drawKnob(const char* text, float x, float y, float level) {
-    constexpr float r = KNOB_WIDTH / 2.f; // radius
-    constexpr float stroke = 3.f;
-    constexpr float startDeg = 120.f;
-    constexpr float endDeg = 420.f;
-    float levelDeg = startDeg + (endDeg - startDeg) * level;
+void UI::knob(const char* text, float x, float y, float* level) {
+    size_t id = pushId(text);
 
+    bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
+    if (!isActive(id) && !isPreactive(id)) {
+        if (mouseInside && !activeExists()) {
+            _preactiveId = id;
+        }
+    }
+    if (!isActive(id) && isPreactive(id)) {
+        if (!mouseInside) {
+            _preactiveId = 0;
+        } else if (_mouseButtonDown) {
+            // SDL_Log("%s active", text);
+            _activeId = id;
+        }
+    }
+    if (isActive(id)) {
+        assert(isPreactive(id));
+        if (_mouseButtonUp) {
+            // SDL_Log("%s inactive", text);
+            _activeId = 0;
+        }
+    }
+
+    float stroke = 2.5f;
+    if (isActive(id) || isPreactive(id)) {
+        stroke = 3.f;
+    }
+    float r = KNOB_WIDTH / 2.f; // radius
+    float startDeg = 120.f;
+    float endDeg = 420.f;
     float cx = x + r; // center of circle
     float cy = y + r;
 
+    float levelToUse = *level;
+    if (isActive(id)) {
+        float pxToLevelScalar = 1.f / 150.f;
+        float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
+        newLevel = std::max(0.f, newLevel);
+        newLevel = std::min(1.f, newLevel);
+        levelToUse = newLevel;
+        *level = levelToUse;
+    }
+
+    float levelDeg = startDeg + (endDeg - startDeg) * levelToUse;
+
     drawFilledCircle(cx, cy, r, KNOB_BG);
-    drawArc(cx, cy, r - 1.5f*stroke, startDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
-    drawArc(cx, cy, r - 1.5f*stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+    drawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
+    drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
 
     // Draw line for knob level indicator
-    float outerRadius = r - 1.5f*stroke;
+    float outerRadius = r - 1.5f - stroke/2.f;
     nvgSave(_nvg);
     nvgTranslate(_nvg, cx, cy);
     nvgRotate(_nvg, DegToRad(levelDeg));
     drawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
     nvgRestore(_nvg);
 
-    drawLabel(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+    label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+
+    popId();
 }
 
-void UI::drawWaveform() {
-}
+void UI::oscillator(const char* name, float x, float y) {
+    size_t id = pushId(name);
 
-void UI::drawOscillator(float x, float y) {
-    nvgBeginPath(_nvg);
-    // Oscillator background
-    float pad = 10.f;
+    float pad = 10.f; // between background and oscillator widgets
     float num_knobs = 2.f;
     float rw = num_knobs * (pad + KNOB_WIDTH) + pad;
     float rh = 2.f * pad + KNOB_HEIGHT;
 
+    nvgBeginPath(_nvg);
+
+    // Oscillator background
     nvgRoundedRect(_nvg, x, y, rw, rh, 5.f);
     nvgFillColor(_nvg, OSC_ENABLED_GREY);
     nvgStrokeWidth(_nvg, 2.f);
@@ -157,9 +242,13 @@ void UI::drawOscillator(float x, float y) {
     // Knobs
     float xoff = x + pad;
     float yoff = y + pad;
-    drawKnob("LEVEL", xoff, yoff, .7f);
+    static float levelValue = 0.7f;
+    knob("LEVEL", xoff, yoff, &levelValue);
     xoff += (KNOB_WIDTH + pad);
-    drawKnob("PAN", xoff, yoff, .5f);
+    static float panValue = 0.5f;
+    knob("PAN", xoff, yoff, &panValue);
+
+    popId();
 }
 
 void UI::draw() {
@@ -167,11 +256,24 @@ void UI::draw() {
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
-    drawOscillator(100.f, 100.f);
+    oscillator("OSC1", 100.f, 100.f);
+
+    // TODO
+    //
+    // detect knob hover, stroke increase
+    // detect knob click and drag, active, set level
+    // knob click popup text with level value when active
+    // knob zero point (pan should be at .5)
     // coarse pitch
     // fine pitch
     // piano roll
     // waveform
 
+
     nvgEndFrame(_nvg);
+
+    // Auto-clear mouse events now that we've drawn
+    _mouseButtonDown = false;
+    _mouseButtonUp = false;
+    _mouseYDelta = 0.f;
 }

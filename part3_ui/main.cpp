@@ -74,6 +74,9 @@ static void checkInputEvents(void) {
                 _synth->freqHz = std::min(_synth->freqHz, SAMPLE_RATE_HZ / 2.0);
             }
         }
+
+        // Also notify UI
+        _synth->ui.onControlEvent(event);
     }
 }
 
