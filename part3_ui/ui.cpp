@@ -108,6 +108,12 @@ void UI::onControlEvent(SDL_Event event) {
         _mouseButtonDown = true;
     } else if (event.type == SDL_MOUSEBUTTONUP) {
         _mouseButtonUp = true;
+        uint32_t now = SDL_GetTicks();
+        uint32_t deltaMs = now - _mouseLastClick;
+        if (deltaMs < 250) {
+            _mouseDoubleClick = true;
+        }
+        _mouseLastClick = now;
     } else if (event.type == SDL_MOUSEMOTION) {
         _mouseX = event.motion.x;
         float newMouseY = event.motion.y;
@@ -173,6 +179,7 @@ void UI::knob(const char* text, float x, float y, float* level, const char* valu
     size_t id = ScopedId(_idStack, text).value();
 
     bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
+    bool resetToZero = isActive(id) && _mouseDoubleClick;
     if (!isActive(id) && !isPreactive(id)) {
         if (mouseInside && !activeExists()) {
             _preactiveId = id;
@@ -182,18 +189,17 @@ void UI::knob(const char* text, float x, float y, float* level, const char* valu
         if (!mouseInside) {
             _preactiveId = 0;
         } else if (_mouseButtonDown) {
-            // SDL_Log("%s active", text);
             _activeId = id;
         }
     }
     if (isActive(id)) {
         assert(isPreactive(id));
         if (_mouseButtonUp) {
-            // SDL_Log("%s inactive", text);
             _activeId = 0;
         }
     }
 
+    // TODO - we cleared active ID above. Should we do that at the end? Does it matter?
     float stroke = 2.5f;
     if (isActive(id) || isPreactive(id)) {
         stroke = 3.f;
@@ -205,7 +211,10 @@ void UI::knob(const char* text, float x, float y, float* level, const char* valu
     float cy = y + r;
 
     float levelToUse = *level;
-    if (isActive(id)) {
+    if (resetToZero) {
+        levelToUse = 0.5f;
+        *level = levelToUse;
+    } else if (isActive(id)) {
         float pxToLevelScalar = 1.f / 150.f;
         float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
         newLevel = std::max(0.f, newLevel);
@@ -289,7 +298,6 @@ void UI::draw() {
     // TODO
     //
     // knob zero point (pan should be at .5)
-    // knob double-click to return to zero point
     // link knob values with oscillator
     // coarse pitch
     // fine pitch
@@ -303,4 +311,5 @@ void UI::draw() {
     _mouseButtonDown = false;
     _mouseButtonUp = false;
     _mouseYDelta = 0.f;
+    _mouseDoubleClick = false;
 }

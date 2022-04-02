@@ -48,5 +48,7 @@ private:
     bool _mouseButtonDown = false;
     bool _mouseButtonUp = false;
     float _mouseYDelta = 0.f;
+    uint32_t _mouseLastClick = 0;
+    bool _mouseDoubleClick = false;
 };
 
