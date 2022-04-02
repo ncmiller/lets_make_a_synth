@@ -13,19 +13,23 @@ static std::unique_ptr<Synth> _synth;
 // TODO - Move this somewhere else
 static void audioCallback(void* userdata, Uint8* stream, int len) {
     const double periodS = 1.0 / _synth->freqHz;
+    float volume = _synth->osc.volume.load();
+    float pan = _synth->osc.pan.load();
+    float leftWeight = -pan + 0.5f;
+    float rightWeight = 1.f - leftWeight;
 
     static double t = 0.0;
     while (len > 0) {
         double y = 0.0;
         if (_synth->soundEnabled) {
-            y = VOLUME * _synth->osc.getSample(t, _synth->freqHz);
+            y = volume * MAX_VOLUME * _synth->osc.getSample(t, _synth->freqHz);
         }
 
-        // Populate left and right channels with the same sample
+        // Populate left and right channels based on pan
         float* left = (float*)(stream);
         float* right = (float*)(stream + 4);
-        *left = (float)y;
-        *right = (float)y;
+        *left = (float)y * leftWeight;
+        *right = (float)y * rightWeight;
 
         t += dt;
         if (t >= periodS) { // wraparound

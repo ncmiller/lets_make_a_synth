@@ -238,7 +238,6 @@ void UI::knob(const char* text, float x, float y, float zero, float defaultLev, 
         drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
     } else {
         // startDeg -> (zero -> level) -> endDeg
-        SDL_Log("LevelDeg = %f, ZeroDeg = %f", levelDeg, zeroDeg);
         drawArc(cx, cy, r - 1.5f - stroke, startDeg, zeroDeg, stroke, KNOB_INACTIVE_GREY);
         drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
         drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
@@ -290,16 +289,18 @@ void UI::oscillator(const char* name, float x, float y) {
     // Knobs
     float xoff = x + pad;
     float yoff = y + pad;
-    static float levelValue = 0.7f;
+    float levelValue = _synth->osc.volume.load();
     char levelText[16] = {};
     snprintf(levelText, sizeof(levelText), "%3.1f%%", levelValue * 100.f);
     knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
+    _synth->osc.volume.store(levelValue);
 
     xoff += (KNOB_WIDTH + pad);
-    static float panValue = 0.0f;
+    float panValue = _synth->osc.pan.load();
     char panText[16] = {};
     snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
     knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
+    _synth->osc.pan.store(panValue);
 }
 
 void UI::draw() {
