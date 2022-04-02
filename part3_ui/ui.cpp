@@ -175,11 +175,11 @@ void UI::label(
     nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
 }
 
-void UI::knob(const char* text, float x, float y, float* level, const char* valuetext) {
+void UI::knob(const char* text, float x, float y, float zero, float defaultLev, float* level, const char* valuetext) {
     size_t id = ScopedId(_idStack, text).value();
 
     bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
-    bool resetToZero = isActive(id) && _mouseDoubleClick;
+    bool resetToDefault = isActive(id) && _mouseDoubleClick;
     if (!isActive(id) && !isPreactive(id)) {
         if (mouseInside && !activeExists()) {
             _preactiveId = id;
@@ -199,7 +199,6 @@ void UI::knob(const char* text, float x, float y, float* level, const char* valu
         }
     }
 
-    // TODO - we cleared active ID above. Should we do that at the end? Does it matter?
     float stroke = 2.5f;
     if (isActive(id) || isPreactive(id)) {
         stroke = 3.f;
@@ -211,24 +210,39 @@ void UI::knob(const char* text, float x, float y, float* level, const char* valu
     float cy = y + r;
 
     float levelToUse = *level;
-    if (resetToZero) {
-        levelToUse = 0.5f;
+    if (resetToDefault) {
+        levelToUse = defaultLev;
         *level = levelToUse;
     } else if (isActive(id)) {
         float pxToLevelScalar = 1.f / 150.f;
         float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
-        newLevel = std::max(0.f, newLevel);
-        newLevel = std::min(1.f, newLevel);
+        newLevel = std::max(-zero, newLevel);
+        newLevel = std::min(1.f - zero, newLevel);
         levelToUse = newLevel;
         *level = levelToUse;
     }
 
-    float levelDeg = startDeg + (endDeg - startDeg) * levelToUse;
+    // Normalize level from 0 to 1
+    float normalizedLevel = levelToUse + zero;
+    assert (normalizedLevel >= -0.0001f && normalizedLevel <= 1.0001f);
+
+    float levelDeg = startDeg + (endDeg - startDeg) * normalizedLevel;
+    float zeroDeg = startDeg + (endDeg - startDeg) * zero;
 
     // Draw knob background and arcs
     drawFilledCircle(cx, cy, r, KNOB_BG);
-    drawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
-    drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+    if (normalizedLevel < zero) {
+        // startDeg -> (level -> zero) -> endDeg
+        drawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_INACTIVE_GREY);
+        drawArc(cx, cy, r - 1.5f - stroke, levelDeg, zeroDeg, stroke, KNOB_ACTIVE_PURPLE);
+        drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+    } else {
+        // startDeg -> (zero -> level) -> endDeg
+        SDL_Log("LevelDeg = %f, ZeroDeg = %f", levelDeg, zeroDeg);
+        drawArc(cx, cy, r - 1.5f - stroke, startDeg, zeroDeg, stroke, KNOB_INACTIVE_GREY);
+        drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
+        drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+    }
 
     // Draw line for knob level indicator
     float outerRadius = r - 1.5f - stroke/2.f;
@@ -279,13 +293,13 @@ void UI::oscillator(const char* name, float x, float y) {
     static float levelValue = 0.7f;
     char levelText[16] = {};
     snprintf(levelText, sizeof(levelText), "%3.1f%%", levelValue * 100.f);
-    knob("LEVEL", xoff, yoff, &levelValue, levelText);
+    knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
 
     xoff += (KNOB_WIDTH + pad);
-    static float panValue = 0.5f;
+    static float panValue = 0.0f;
     char panText[16] = {};
     snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
-    knob("PAN", xoff, yoff, &panValue, panText);
+    knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
 }
 
 void UI::draw() {
@@ -297,7 +311,6 @@ void UI::draw() {
 
     // TODO
     //
-    // knob zero point (pan should be at .5)
     // link knob values with oscillator
     // coarse pitch
     // fine pitch
