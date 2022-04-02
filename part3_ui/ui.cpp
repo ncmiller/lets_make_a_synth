@@ -44,6 +44,27 @@ void ClearBackground(NVGcolor color) {
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
+size_t HashCombine(size_t seed, size_t value) {
+    return (seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
+}
+
+template <typename T>
+class ScopedId {
+public:
+    ScopedId(std::vector<size_t>& idStack, const T& data) : _idStack(idStack) {
+        size_t seed = idStack.back();
+        size_t id = HashCombine(seed, std::hash<T>{}(data));
+        _idStack.push_back(id);
+    }
+    ~ScopedId() {
+        _idStack.pop_back();
+    }
+    size_t value() const {
+        return _idStack.back();
+    }
+private:
+    std::vector<size_t>& _idStack;
+};
 
 bool UI::init(Synth* synth) {
     _synth = synth;
@@ -61,21 +82,6 @@ bool UI::init(Synth* synth) {
     nvgFontFaceId(_nvg, _fontId);
     _idStack.push_back(std::hash<const char*>{}("root"));
     return true;
-}
-
-size_t UI::hashCombine(size_t seed, size_t value) {
-    return (seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
-}
-
-size_t UI::pushId(const char* str) {
-    size_t seed = _idStack.back();
-    size_t id = hashCombine(seed, std::hash<const char*>{}(str));
-    _idStack.push_back(id);
-    return id;
-}
-
-void UI::popId() {
-    _idStack.pop_back();
 }
 
 bool UI::mouseInRect(float x1, float y1, float x2, float y2) {
@@ -158,7 +164,7 @@ void UI::label(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fg
 }
 
 void UI::knob(const char* text, float x, float y, float* level) {
-    size_t id = pushId(text);
+    size_t id = ScopedId(_idStack, text).value();
 
     bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
     if (!isActive(id) && !isPreactive(id)) {
@@ -217,12 +223,10 @@ void UI::knob(const char* text, float x, float y, float* level) {
     nvgRestore(_nvg);
 
     label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
-
-    popId();
 }
 
 void UI::oscillator(const char* name, float x, float y) {
-    size_t id = pushId(name);
+    size_t id = ScopedId(_idStack, name).value();
 
     float pad = 10.f; // between background and oscillator widgets
     float num_knobs = 2.f;
@@ -247,8 +251,6 @@ void UI::oscillator(const char* name, float x, float y) {
     xoff += (KNOB_WIDTH + pad);
     static float panValue = 0.5f;
     knob("PAN", xoff, yoff, &panValue);
-
-    popId();
 }
 
 void UI::draw() {
