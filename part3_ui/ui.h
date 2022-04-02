@@ -23,8 +23,12 @@ private:
     void drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color);
 
     // Synth widgets
-    void label(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
-    void knob(const char* text, float x, float y, float* level);
+    void label(
+            const char* text,
+            float x, float y,
+            NVGcolor bgColor, NVGcolor fgColor,
+            std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
+    void knob(const char* text, float x, float y, float* level, const char* valuetext);
     void oscillator(const char* name, float x, float y);
 
     // Utility functions

@@ -48,6 +48,8 @@ size_t HashCombine(size_t seed, size_t value) {
     return (seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
 }
 
+// Helper class, make it easy to generate and push a new ID on the ID stack
+// in the current scope and automatically pop when leaving scope.
 template <typename T>
 class ScopedId {
 public:
@@ -138,7 +140,11 @@ void UI::drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, N
     nvgStroke(_nvg);
 }
 
-void UI::label(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fgColor, std::optional<float> width, std::optional<float> height) {
+void UI::label(
+        const char* text,
+        float x, float y,
+        NVGcolor bgColor, NVGcolor fgColor,
+        std::optional<float> width, std::optional<float> height) {
     nvgBeginPath(_nvg);
 
     // Get bounds of rendered text
@@ -163,7 +169,7 @@ void UI::label(const char* text, float x, float y, NVGcolor bgColor, NVGcolor fg
     nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
 }
 
-void UI::knob(const char* text, float x, float y, float* level) {
+void UI::knob(const char* text, float x, float y, float* level, const char* valuetext) {
     size_t id = ScopedId(_idStack, text).value();
 
     bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
@@ -210,6 +216,7 @@ void UI::knob(const char* text, float x, float y, float* level) {
 
     float levelDeg = startDeg + (endDeg - startDeg) * levelToUse;
 
+    // Draw knob background and arcs
     drawFilledCircle(cx, cy, r, KNOB_BG);
     drawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
     drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
@@ -222,7 +229,21 @@ void UI::knob(const char* text, float x, float y, float* level) {
     drawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
     nvgRestore(_nvg);
 
+    // Knob label at the bottom
     label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+
+    // Overlay text of current value. Only visible if preactive or active.
+    float overlayOpacity = 0.0f;
+    if (isActive(id)) {
+        overlayOpacity = 0.6f;
+    } else if (isPreactive(id)) {
+        overlayOpacity = 0.3f;
+    }
+    NVGcolor bg = KNOB_LABEL_BG;
+    bg.a = overlayOpacity;
+    NVGcolor fg = WHITE;
+    fg.a = overlayOpacity;
+    label(valuetext, cx-r, cy-1.6f*r, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
 }
 
 void UI::oscillator(const char* name, float x, float y) {
@@ -247,10 +268,15 @@ void UI::oscillator(const char* name, float x, float y) {
     float xoff = x + pad;
     float yoff = y + pad;
     static float levelValue = 0.7f;
-    knob("LEVEL", xoff, yoff, &levelValue);
+    char levelText[16] = {};
+    snprintf(levelText, sizeof(levelText), "%3.1f%%", levelValue * 100.f);
+    knob("LEVEL", xoff, yoff, &levelValue, levelText);
+
     xoff += (KNOB_WIDTH + pad);
     static float panValue = 0.5f;
-    knob("PAN", xoff, yoff, &panValue);
+    char panText[16] = {};
+    snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
+    knob("PAN", xoff, yoff, &panValue, panText);
 }
 
 void UI::draw() {
@@ -262,10 +288,9 @@ void UI::draw() {
 
     // TODO
     //
-    // detect knob hover, stroke increase
-    // detect knob click and drag, active, set level
-    // knob click popup text with level value when active
     // knob zero point (pan should be at .5)
+    // knob double-click to return to zero point
+    // link knob values with oscillator
     // coarse pitch
     // fine pitch
     // piano roll
