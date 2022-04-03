@@ -9,7 +9,7 @@ float map(float value, float start1, float end1, float start2, float end2) {
 }
 
 float clamp(float value, float minValue, float maxValue) {
-    return std::min(std::max(minValue, value), value);
+    return std::min(std::max(minValue, value), maxValue);
 }
 
 } // namespace utility

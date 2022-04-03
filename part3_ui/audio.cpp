@@ -17,8 +17,7 @@ void AudioCallback(void* userdata, uint8_t* stream, int len) {
     float rightWeight = 1.f - leftWeight;
 
     while (len > 0) {
-        float y = volume * synth->osc.getSample();
-        y = utility::clamp(y, 0.f, MAX_VOLUME);
+        float y = MAX_VOLUME * volume * synth->osc.getSample();
 
         // Populate left and right channels based on pan
         float* left = (float*)(stream);

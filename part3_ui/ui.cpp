@@ -220,15 +220,17 @@ void UI::knob(const char* text, float x, float y, float zero, float defaultLev, 
     } else if (isActive(id)) {
         float pxToLevelScalar = 1.f / 150.f;
         float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
-        newLevel = std::max(-zero, newLevel);
-        newLevel = std::min(1.f - zero, newLevel);
+        newLevel = utility::clamp(newLevel, -zero, 1.f - zero);
         levelToUse = newLevel;
         *level = levelToUse;
     }
 
     // Normalize level from 0 to 1
     float normalizedLevel = levelToUse + zero;
-    assert (normalizedLevel >= -0.0001f && normalizedLevel <= 1.0001f);
+    if (normalizedLevel < -0.001f || normalizedLevel > 1.001f) {
+        SDL_Log("normalizedLevel = %f", normalizedLevel);
+        assert(false);
+    }
 
     float levelDeg = startDeg + (endDeg - startDeg) * normalizedLevel;
     float zeroDeg = startDeg + (endDeg - startDeg) * zero;
@@ -310,7 +312,7 @@ void UI::oscillator(const char* name, float x, float y) {
     float coarseValue = _synth->osc.coarsePitch.load();
     float coarseKnobLevel = utility::map(coarseValue, -36.f, 36.f, -.5, .5);
     char coarseText[16] = {};
-    snprintf(coarseText, sizeof(coarseText), "%3.1f st", coarseValue);
+    snprintf(coarseText, sizeof(coarseText), "%d st", (int32_t)round(coarseValue));
     knob("PITCH", xoff, yoff, 0.5f, 0.0f, &coarseKnobLevel, coarseText);
     coarseValue = utility::map(coarseKnobLevel, -.5f, .5f, -36.f, 36.f);
     _synth->osc.coarsePitch.store(coarseValue);

@@ -51,7 +51,7 @@ void Oscillator::nextFn() {
 // https://en.wikipedia.org/wiki/Cent_(music)
 float Oscillator::getFrequency() const {
     float cents = noteIndex * 100.0f;
-    cents += (coarsePitch * 100.0f);
+    cents += (round(coarsePitch) * 100.0f);
     cents += finePitch;
     return A0Freq * pow(2.f, cents / 1200.f);
 }
