@@ -12,10 +12,11 @@ bool SDLWrapper::init(
         uint32_t heightPx,
         uint32_t audioSampleRateHz,
         uint16_t audioSamplesPerBuffer,
-        SDL_AudioCallback audioCallback) {
+        SDL_AudioCallback audioCallback,
+        void* callbackUserdata) {
     RETURN_FALSE_IF_FALSE(initWindow(winTitle, widthPx, heightPx));
     RETURN_FALSE_IF_FALSE(initRenderer(widthPx, heightPx));
-    RETURN_FALSE_IF_FALSE(initAudio(audioSampleRateHz, audioSamplesPerBuffer, audioCallback));
+    RETURN_FALSE_IF_FALSE(initAudio(audioSampleRateHz, audioSamplesPerBuffer, audioCallback, callbackUserdata));
     return true;
 }
 
@@ -76,7 +77,7 @@ bool SDLWrapper::initRenderer(uint32_t widthPx, uint32_t heightPx) {
     return true;
 }
 
-bool SDLWrapper::initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback) {
+bool SDLWrapper::initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback, void* callbackUserdata) {
     // Initialize Audio
     SDL_AudioSpec desired = {};
     desired.freq = (int)sampleRateHz;
@@ -84,6 +85,7 @@ bool SDLWrapper::initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL
     desired.channels = NUM_SOUND_CHANNELS;
     desired.samples = samplesPerBuffer;
     desired.callback = audioCallback;
+    desired.userdata = callbackUserdata;
 
     SDL_AudioSpec actual = {};
     _audioDevice = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, 0);

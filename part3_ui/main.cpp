@@ -1,4 +1,5 @@
 #include "synth.h"
+#include "audio.h"
 #include <stdio.h>
 #include <assert.h>
 #include <algorithm>
@@ -9,45 +10,6 @@
 #define RETURN_1_IF_FALSE(expr) if ((!expr)) { return 1; }
 
 static std::unique_ptr<Synth> _synth;
-
-// TODO - Move this somewhere else
-static void audioCallback(void* userdata, Uint8* stream, int len) {
-    const double periodS = 1.0 / _synth->freqHz;
-    float volume = _synth->osc.volume.load();
-    float pan = _synth->osc.pan.load();
-    float leftWeight = -pan + 0.5f;
-    float rightWeight = 1.f - leftWeight;
-
-    static double t = 0.0;
-    while (len > 0) {
-        double y = 0.0;
-        if (_synth->soundEnabled) {
-            y = volume * MAX_VOLUME * _synth->osc.getSample(t, _synth->freqHz);
-        }
-
-        // Populate left and right channels based on pan
-        float* left = (float*)(stream);
-        float* right = (float*)(stream + 4);
-        *left = (float)y * leftWeight;
-        *right = (float)y * rightWeight;
-
-        t += dt;
-        if (t >= periodS) { // wraparound
-            if (_synth->start) {
-                _synth->start = false;
-                _synth->soundEnabled = true;
-            } else if (_synth->stop) {
-                _synth->stop = false;
-                _synth->soundEnabled = false;
-            }
-            t -= periodS;
-        }
-
-        // Advance forward in the stream
-        stream += (2 * sizeof(float));
-        len -= (2 * sizeof(float));
-    }
-}
 
 // TODO - Move this somewhere else
 static void checkInputEvents(void) {
@@ -70,13 +32,6 @@ static void checkInputEvents(void) {
                 _synth->osc.nextFn();
             }
         } else if (event.type == SDL_MOUSEMOTION) {
-            constexpr double dFreqMaxHz = DEFAULT_FREQ;
-            if (_synth->soundEnabled) {
-                _synth->freqHz -= dFreqMaxHz * ((double)event.motion.yrel / (double)WINDOW_HEIGHT);
-                // Clip if freq goes too low or high
-                _synth->freqHz = std::max(_synth->freqHz, 1.0);
-                _synth->freqHz = std::min(_synth->freqHz, SAMPLE_RATE_HZ / 2.0);
-            }
         }
 
         // Also notify UI
@@ -97,9 +52,10 @@ int main(int argc, char* argv[]) {
             "Synth (part 3)",
             WINDOW_WIDTH,
             WINDOW_HEIGHT,
-            SAMPLE_RATE_HZ,
+            (uint32_t)SAMPLE_RATE_HZ,
             SAMPLES_PER_BUFFER,
-            audioCallback));
+            audio::AudioCallback,
+            (void*)_synth.get()));
     RETURN_1_IF_FALSE(_synth->osc.init(_synth.get()));
     RETURN_1_IF_FALSE(_synth->ui.init(_synth.get()));
 

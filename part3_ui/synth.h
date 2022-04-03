@@ -8,8 +8,6 @@
 struct Synth {
     bool start = false;
     bool stop = false;
-    bool soundEnabled = false;
-    double freqHz = DEFAULT_FREQ;
     bool shouldQuit = false;
     SDLWrapper sdl;
     Oscillator osc;

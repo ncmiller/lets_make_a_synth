@@ -18,6 +18,8 @@ add_executable(synth
     sdlwrapper.cpp
     oscillator.cpp
     ui.cpp
+    utility.cpp
+    audio.cpp
     main.cpp
 )
 

@@ -1,5 +1,6 @@
 #include "constants.h"
 #include "ui.h"
+#include "utility.h"
 #include "synth.h"
 #include <glad/glad.h>
 #include <nanovg.h>
@@ -106,6 +107,8 @@ bool UI::isPreactive(size_t id) {
 void UI::onControlEvent(SDL_Event event) {
     if (event.type == SDL_MOUSEBUTTONDOWN) {
         _mouseButtonDown = true;
+        // TODO - remove, testing only
+        _synth->osc.noteActive.store(true);
     } else if (event.type == SDL_MOUSEBUTTONUP) {
         _mouseButtonUp = true;
         uint32_t now = SDL_GetTicks();
@@ -114,6 +117,7 @@ void UI::onControlEvent(SDL_Event event) {
             _mouseDoubleClick = true;
         }
         _mouseLastClick = now;
+        _synth->osc.noteActive.store(false);
     } else if (event.type == SDL_MOUSEMOTION) {
         _mouseX = event.motion.x;
         float newMouseY = event.motion.y;
@@ -272,7 +276,7 @@ void UI::oscillator(const char* name, float x, float y) {
     size_t id = ScopedId(_idStack, name).value();
 
     float pad = 10.f; // between background and oscillator widgets
-    float num_knobs = 2.f;
+    float num_knobs = 4.f;
     float rw = num_knobs * (pad + KNOB_WIDTH) + pad;
     float rh = 2.f * pad + KNOB_HEIGHT;
 
@@ -301,6 +305,24 @@ void UI::oscillator(const char* name, float x, float y) {
     snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
     knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
     _synth->osc.pan.store(panValue);
+
+    xoff += (KNOB_WIDTH + pad);
+    float coarseValue = _synth->osc.coarsePitch.load();
+    float coarseKnobLevel = utility::map(coarseValue, -36.f, 36.f, -.5, .5);
+    char coarseText[16] = {};
+    snprintf(coarseText, sizeof(coarseText), "%3.1f st", coarseValue);
+    knob("PITCH", xoff, yoff, 0.5f, 0.0f, &coarseKnobLevel, coarseText);
+    coarseValue = utility::map(coarseKnobLevel, -.5f, .5f, -36.f, 36.f);
+    _synth->osc.coarsePitch.store(coarseValue);
+
+    xoff += (KNOB_WIDTH + pad);
+    float fineValue = _synth->osc.finePitch.load();
+    float fineKnobLevel = utility::map(fineValue, -100.f, 100.f, -.5f, .5f);
+    char fineText[16] = {};
+    snprintf(fineText, sizeof(fineText), "%3.1f cents", fineValue);
+    knob("FINE", xoff, yoff, 0.5f, 0.0f, &fineKnobLevel, fineText);
+    fineValue = utility::map(fineKnobLevel, -.5f, .5f, -100.f, 100.f);
+    _synth->osc.finePitch.store(fineValue);
 }
 
 void UI::draw() {
@@ -308,13 +330,13 @@ void UI::draw() {
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
+    SDL_Log("Freq = %f", _synth->osc.getFrequency());
     oscillator("OSC1", 100.f, 100.f);
 
     // TODO
     //
-    // link knob values with oscillator
-    // coarse pitch
-    // fine pitch
+    // coarse pitch int slider
+    // fine pitch int slider
     // piano roll
     // waveform
 

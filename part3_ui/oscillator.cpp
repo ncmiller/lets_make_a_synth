@@ -1,47 +1,31 @@
 #include "oscillator.h"
+#include "utility.h"
 #include <math.h>
 #include <stdlib.h>
 
-double sine(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    constexpr double twoPi = 2.0 * M_PI;
-    return sin(twoPi * freqHz * t);
+float sine(float phase) {
+    return sin(phase);
 }
 
-double square(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double halfPeriodS = 1.0 / freqHz / 2.0;
-    if (t < halfPeriodS) {
-        return 1;
+float square(float phase) {
+    return (phase < M_PI ? 1 : -1);
+}
+
+float saw(float phase) {
+    return utility::map(phase, 0.f, TwoPi, -1.f, 1.f);
+}
+
+float triangle(float phase) {
+    if (phase < M_PI) {
+        return utility::map(phase, 0.f, (float)M_PI, 1.f, -1.f);
     } else {
-        return -1;
+        return utility::map(phase, (float)M_PI, TwoPi, -1.f, 1.f);
     }
 }
 
-double saw(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double periodS = 1.0 / freqHz;
-    const double percentComplete = t / periodS;
-    // scale and offset to get it in range [-1, 1]
-    return 2.0 * percentComplete - 1.0;
-}
-
-double triangle(double t, double freqHz) {
-    t = fmod(t, 1.0 / freqHz);
-    const double periodS = 1.0 / freqHz;
-    const double percentComplete = t / periodS;
-    if (percentComplete <= 0.5) {
-        // 1 down to -1
-        return 1.0 - 4.0 * percentComplete;
-    } else {
-        // -1 up to 1
-        return -1.0 + 4.0 * (percentComplete - 0.5);
-    }
-}
-
-double whitenoise(double t, double freqHz) {
-    double rand_normalized = (double)rand() / (double)RAND_MAX;
-    return 2.0 * rand_normalized - 1.0;
+float whitenoise(float phase) {
+    // phase unused
+    return utility::map((float)rand(), 0.f, (float)RAND_MAX, -1.f, 1.f);
 }
 
 bool Oscillator::init(Synth* synth) {
@@ -50,19 +34,31 @@ bool Oscillator::init(Synth* synth) {
 }
 
 void Oscillator::nextFn() {
-    if (_fn == sine) {
-        _fn = square;
-    } else if (_fn == square) {
-        _fn = triangle;
-    } else if (_fn == triangle) {
-        _fn = saw;
-    } else if (_fn == saw) {
-        _fn = whitenoise;
-    } else if (_fn == whitenoise) {
-        _fn = sine;
+    if (fn == sine) {
+        fn = square;
+    } else if (fn == square) {
+        fn = triangle;
+    } else if (fn == triangle) {
+        fn = saw;
+    } else if (fn == saw) {
+        fn = whitenoise;
+    } else if (fn == whitenoise) {
+        fn = sine;
     }
 }
 
-double Oscillator::getSample(double t, double freqHz) const {
-    return _fn(t, freqHz);
+// See this page for converting notes -> cents -> frequency
+// https://en.wikipedia.org/wiki/Cent_(music)
+float Oscillator::getFrequency() const {
+    float cents = noteIndex * 100.0f;
+    cents += (coarsePitch * 100.0f);
+    cents += finePitch;
+    return A0Freq * pow(2.f, cents / 1200.f);
+}
+
+float Oscillator::getSample() {
+    float sample = fn.load()(_phase);
+    float dPhase = TwoPi * getFrequency() / SAMPLE_RATE_HZ;
+    _phase = fmodf(_phase + dPhase, TwoPi);
+    return (noteActive.load() ? sample : 0.0f);
 }
