@@ -20,7 +20,6 @@ class Oscillator {
 public:
     bool Init(Synth* synth);
     void NextFn();
-    float GetFrequency() const;
     void GetSample(float* left, float* right);
 
     // Controllable from UI
@@ -34,6 +33,8 @@ public:
     std::atomic<uint8_t> noteIndex = 39; // C4, 0-based on 88-key piano, index 0 is note A0
 
 private:
+    float GetFrequency() const;
+
     static constexpr float A0Freq = 27.5f;
 
     Synth* _synth = nullptr;

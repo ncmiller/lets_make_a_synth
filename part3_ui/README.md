@@ -262,7 +262,23 @@ void UI::drawArc(
 
 ## Stereo panning
 
+
 (linear vs constant power panning)
+
+```cpp
+// Linear panning
+float leftWeight = utility::Map(pan, -.5f, .5f, 1.f, 0.f);
+float rightWeight = 1.f - leftWeight;
+*left *= leftWeight;
+*right *= rightWeight;
+```
+
+```cpp
+// Constant power panning
+float theta = utility::Map(pan, -.5f, .5f, 0.f, (float)M_PI / 2.f);
+*left *= cos(theta);
+*right *= sin(theta);
+```
 
 ## Plot
 

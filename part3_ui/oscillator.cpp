@@ -63,6 +63,7 @@ float Oscillator::GetFrequency() const {
 
 void Oscillator::GetSample(float* left, float* right) {
     float sample = fn.load()(_phase);
+
     // Update phase for next time
     float dPhase = TWOPI * GetFrequency() / SAMPLE_RATE_HZ;
     _phase = fmodf(_phase + dPhase, TWOPI);
@@ -73,16 +74,11 @@ void Oscillator::GetSample(float* left, float* right) {
         return;
     }
 
-    *left = sample;
-    *right = sample;
+    *left = sample * volume;
+    *right = sample * volume;
 
-    // volume
-    *left *= volume;
-    *right *= volume;
-
-    // pan
-    float leftWeight = utility::Map(pan, -.5f, .5f, 1.f, 0.f);
-    float rightWeight = 1.f - leftWeight;
-    *left *= leftWeight;
-    *right *= rightWeight;
+    // Constant power panning
+    float theta = utility::Map(pan, -.5f, .5f, 0.f, (float)M_PI / 2.f);
+    *left *= cos(theta);
+    *right *= sin(theta);
 }
