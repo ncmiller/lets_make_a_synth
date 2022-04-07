@@ -26,6 +26,7 @@ private:
     void Label(
             const char* text,
             float x, float y,
+            float fontsize,
             NVGcolor bgColor, NVGcolor fgColor,
             std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
     void Knob(

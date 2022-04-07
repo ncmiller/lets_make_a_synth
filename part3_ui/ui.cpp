@@ -35,10 +35,8 @@ static constexpr NVGcolor KNOB_ACTIVE_PURPLE = RGBAtoColor(164,137,248,255);
 static constexpr NVGcolor KNOB_INACTIVE_GREY = OSC_ENABLED_GREY;
 static constexpr NVGcolor KNOB_LABEL_BG = RGBAtoColor(63,66,69,255);
 static constexpr NVGcolor DARK_GREY = RGBAtoColor(25, 25, 25, 255);
-static constexpr NVGcolor LIME_GREEN = RGBAtoColor(50, 205, 50, 255);
-static constexpr NVGcolor BLACK = RGBAtoColor(0, 0, 0, 255);
-static constexpr NVGcolor ALMOST_WHITE = RGBAtoColor(214, 214, 214, 255);
 static constexpr NVGcolor WHITE = RGBAtoColor(255, 255, 255, 255);
+static constexpr NVGcolor TRANSPARENT = RGBAtoColor(0, 0, 0, 0);
 
 void ClearBackground(NVGcolor color) {
     glClearColor(color.r, color.g, color.b, color.a);
@@ -153,13 +151,14 @@ void UI::DrawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, N
 void UI::Label(
         const char* text,
         float x, float y,
+        float fontsize,
         NVGcolor bgColor, NVGcolor fgColor,
         std::optional<float> width, std::optional<float> height) {
     nvgBeginPath(_nvg);
 
     // Get bounds of rendered text
     float bounds[4] = {};
-    nvgFontSize(_nvg, 12);
+    nvgFontSize(_nvg, fontsize);
     nvgTextBounds(_nvg, 0, 0, text, NULL, bounds);
     float textWidth = bounds[2] - bounds[0];
     float textHeight = bounds[3] - bounds[1];
@@ -258,7 +257,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     nvgRestore(_nvg);
 
     // Knob label at the bottom
-    Label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+    Label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, 12, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
 
     // Overlay text of current value. Only visible if preactive or active.
     float overlayOpacity = 0.0f;
@@ -271,7 +270,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     bg.a = overlayOpacity;
     NVGcolor fg = WHITE;
     fg.a = overlayOpacity;
-    Label(valuetext, cx-r, cy-1.6f*r, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
+    Label(valuetext, cx-r, cy-1.6f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
 }
 
 void UI::Oscillator(const char* name, float x, float y) {
@@ -281,6 +280,8 @@ void UI::Oscillator(const char* name, float x, float y) {
     float num_knobs = 4.f;
     float rw = num_knobs * (pad + KNOB_WIDTH) + pad;
     float rh = 2.f * pad + KNOB_HEIGHT;
+
+    Label(name, x - 12, y - 24, 14, TRANSPARENT, WHITE);
 
     nvgBeginPath(_nvg);
 
@@ -332,12 +333,10 @@ void UI::Draw() {
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
-    Oscillator("OSC1", 100.f, 100.f);
+    Oscillator("OSC A", 100.f, 100.f);
 
     // TODO
     //
-    // constant power panning
-    // oscillator label
     // waveform
     // piano roll
 
