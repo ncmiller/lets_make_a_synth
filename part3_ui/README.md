@@ -262,6 +262,8 @@ void UI::drawArc(
 
 ## Stereo panning
 
+(linear vs constant power panning)
+
 ## Plot
 
 ## Pitch transposition

@@ -20,6 +20,7 @@ add_executable(synth
     ui.cpp
     utility.cpp
     audio.cpp
+    input.cpp
     main.cpp
 )
 

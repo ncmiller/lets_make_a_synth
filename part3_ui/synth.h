@@ -3,13 +3,13 @@
 #include "sdlwrapper.h"
 #include "oscillator.h"
 #include "ui.h"
+#include "input.h"
 #include "constants.h"
 
 struct Synth {
-    bool start = false;
-    bool stop = false;
-    bool shouldQuit = false;
+    bool running = true;
     SDLWrapper sdl;
+    Input input;
     Oscillator osc;
     UI ui;
 };

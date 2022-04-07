@@ -69,7 +69,7 @@ private:
     std::vector<size_t>& _idStack;
 };
 
-bool UI::init(Synth* synth) {
+bool UI::Init(Synth* synth) {
     _synth = synth;
     int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
     _nvg = nvgCreateGL3(flags);
@@ -87,28 +87,28 @@ bool UI::init(Synth* synth) {
     return true;
 }
 
-bool UI::mouseInRect(float x1, float y1, float x2, float y2) {
+bool UI::MouseInRect(float x1, float y1, float x2, float y2) {
     return ((_mouseX >= x1 && _mouseX <= x2) &&
             (_mouseY >= y1 && _mouseY <= y2));
 }
 
-bool UI::isActive(size_t id) {
+bool UI::IsActive(size_t id) {
     return (id == _activeId);
 }
 
-bool UI::activeExists() {
+bool UI::ActiveExists() {
     return (_activeId != 0);
 }
 
-bool UI::isPreactive(size_t id) {
+bool UI::IsPreactive(size_t id) {
     return (id == _preactiveId);
 }
 
-void UI::onControlEvent(SDL_Event event) {
+void UI::OnControlEvent(SDL_Event event) {
     if (event.type == SDL_MOUSEBUTTONDOWN) {
         _mouseButtonDown = true;
         // TODO - remove, testing only
-        _synth->osc.noteActive.store(true);
+        _synth->osc.noteActive = true;
     } else if (event.type == SDL_MOUSEBUTTONUP) {
         _mouseButtonUp = true;
         uint32_t now = SDL_GetTicks();
@@ -117,7 +117,7 @@ void UI::onControlEvent(SDL_Event event) {
             _mouseDoubleClick = true;
         }
         _mouseLastClick = now;
-        _synth->osc.noteActive.store(false);
+        _synth->osc.noteActive = false;
     } else if (event.type == SDL_MOUSEMOTION) {
         _mouseX = event.motion.x;
         float newMouseY = event.motion.y;
@@ -126,14 +126,14 @@ void UI::onControlEvent(SDL_Event event) {
     }
 }
 
-void UI::drawFilledCircle(float centerX, float centerY, float radius, NVGcolor color) {
+void UI::DrawFilledCircle(float centerX, float centerY, float radius, NVGcolor color) {
     nvgBeginPath(_nvg);
     nvgCircle(_nvg, centerX, centerY, radius);
     nvgFillColor(_nvg, color);
     nvgFill(_nvg);
 }
 
-void UI::drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color) {
+void UI::DrawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color) {
     nvgBeginPath(_nvg);
     nvgArc(_nvg, cx, cy, radius, DegToRad(startDeg), DegToRad(endDeg), NVG_CW);
     nvgStrokeWidth(_nvg, strokePx);
@@ -141,7 +141,7 @@ void UI::drawArc(float cx, float cy, float radius, float startDeg, float endDeg,
     nvgStroke(_nvg);
 }
 
-void UI::drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color) {
+void UI::DrawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color) {
     nvgBeginPath(_nvg);
     nvgMoveTo(_nvg, x1, y1);
     nvgLineTo(_nvg, x2, y2);
@@ -150,7 +150,7 @@ void UI::drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, N
     nvgStroke(_nvg);
 }
 
-void UI::label(
+void UI::Label(
         const char* text,
         float x, float y,
         NVGcolor bgColor, NVGcolor fgColor,
@@ -179,32 +179,32 @@ void UI::label(
     nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
 }
 
-void UI::knob(const char* text, float x, float y, float zero, float defaultLev, float* level, const char* valuetext) {
+void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, float* level, const char* valuetext) {
     size_t id = ScopedId(_idStack, text).value();
 
-    bool mouseInside = mouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
-    bool resetToDefault = isActive(id) && _mouseDoubleClick;
-    if (!isActive(id) && !isPreactive(id)) {
-        if (mouseInside && !activeExists()) {
+    bool mouseInside = MouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
+    bool resetToDefault = IsActive(id) && _mouseDoubleClick;
+    if (!IsActive(id) && !IsPreactive(id)) {
+        if (mouseInside && !ActiveExists()) {
             _preactiveId = id;
         }
     }
-    if (!isActive(id) && isPreactive(id)) {
+    if (!IsActive(id) && IsPreactive(id)) {
         if (!mouseInside) {
             _preactiveId = 0;
         } else if (_mouseButtonDown) {
             _activeId = id;
         }
     }
-    if (isActive(id)) {
-        assert(isPreactive(id));
+    if (IsActive(id)) {
+        assert(IsPreactive(id));
         if (_mouseButtonUp) {
             _activeId = 0;
         }
     }
 
     float stroke = 2.5f;
-    if (isActive(id) || isPreactive(id)) {
+    if (IsActive(id) || IsPreactive(id)) {
         stroke = 3.f;
     }
     float r = KNOB_WIDTH / 2.f; // radius
@@ -217,10 +217,10 @@ void UI::knob(const char* text, float x, float y, float zero, float defaultLev, 
     if (resetToDefault) {
         levelToUse = defaultLev;
         *level = levelToUse;
-    } else if (isActive(id)) {
+    } else if (IsActive(id)) {
         float pxToLevelScalar = 1.f / 150.f;
         float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
-        newLevel = utility::clamp(newLevel, -zero, 1.f - zero);
+        newLevel = utility::Clamp(newLevel, -zero, 1.f - zero);
         levelToUse = newLevel;
         *level = levelToUse;
     }
@@ -236,17 +236,17 @@ void UI::knob(const char* text, float x, float y, float zero, float defaultLev, 
     float zeroDeg = startDeg + (endDeg - startDeg) * zero;
 
     // Draw knob background and arcs
-    drawFilledCircle(cx, cy, r, KNOB_BG);
+    DrawFilledCircle(cx, cy, r, KNOB_BG);
     if (normalizedLevel < zero) {
         // startDeg -> (level -> zero) -> endDeg
-        drawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_INACTIVE_GREY);
-        drawArc(cx, cy, r - 1.5f - stroke, levelDeg, zeroDeg, stroke, KNOB_ACTIVE_PURPLE);
-        drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+        DrawArc(cx, cy, r - 1.5f - stroke, startDeg, levelDeg, stroke, KNOB_INACTIVE_GREY);
+        DrawArc(cx, cy, r - 1.5f - stroke, levelDeg, zeroDeg, stroke, KNOB_ACTIVE_PURPLE);
+        DrawArc(cx, cy, r - 1.5f - stroke, zeroDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
     } else {
         // startDeg -> (zero -> level) -> endDeg
-        drawArc(cx, cy, r - 1.5f - stroke, startDeg, zeroDeg, stroke, KNOB_INACTIVE_GREY);
-        drawArc(cx, cy, r - 1.5f - stroke, zeroDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
-        drawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
+        DrawArc(cx, cy, r - 1.5f - stroke, startDeg, zeroDeg, stroke, KNOB_INACTIVE_GREY);
+        DrawArc(cx, cy, r - 1.5f - stroke, zeroDeg, levelDeg, stroke, KNOB_ACTIVE_PURPLE);
+        DrawArc(cx, cy, r - 1.5f - stroke, levelDeg, endDeg, stroke, KNOB_INACTIVE_GREY);
     }
 
     // Draw line for knob level indicator
@@ -254,27 +254,27 @@ void UI::knob(const char* text, float x, float y, float zero, float defaultLev, 
     nvgSave(_nvg);
     nvgTranslate(_nvg, cx, cy);
     nvgRotate(_nvg, DegToRad(levelDeg));
-    drawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
+    DrawLine(.3f * outerRadius, 0, outerRadius, 0, stroke, WHITE);
     nvgRestore(_nvg);
 
     // Knob label at the bottom
-    label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+    Label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
 
     // Overlay text of current value. Only visible if preactive or active.
     float overlayOpacity = 0.0f;
-    if (isActive(id)) {
+    if (IsActive(id)) {
         overlayOpacity = 0.6f;
-    } else if (isPreactive(id)) {
+    } else if (IsPreactive(id)) {
         overlayOpacity = 0.3f;
     }
     NVGcolor bg = KNOB_LABEL_BG;
     bg.a = overlayOpacity;
     NVGcolor fg = WHITE;
     fg.a = overlayOpacity;
-    label(valuetext, cx-r, cy-1.6f*r, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
+    Label(valuetext, cx-r, cy-1.6f*r, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
 }
 
-void UI::oscillator(const char* name, float x, float y) {
+void UI::Oscillator(const char* name, float x, float y) {
     size_t id = ScopedId(_idStack, name).value();
 
     float pad = 10.f; // between background and oscillator widgets
@@ -295,53 +295,51 @@ void UI::oscillator(const char* name, float x, float y) {
     // Knobs
     float xoff = x + pad;
     float yoff = y + pad;
-    float levelValue = _synth->osc.volume.load();
+    float levelValue = _synth->osc.volume;
     char levelText[16] = {};
     snprintf(levelText, sizeof(levelText), "%3.1f%%", levelValue * 100.f);
-    knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
-    _synth->osc.volume.store(levelValue);
+    Knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
+    _synth->osc.volume = levelValue;
 
     xoff += (KNOB_WIDTH + pad);
-    float panValue = _synth->osc.pan.load();
+    float panValue = _synth->osc.pan;
     char panText[16] = {};
     snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
-    knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
-    _synth->osc.pan.store(panValue);
+    Knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
+    _synth->osc.pan = panValue;
 
     xoff += (KNOB_WIDTH + pad);
-    float coarseValue = _synth->osc.coarsePitch.load();
-    float coarseKnobLevel = utility::map(coarseValue, -36.f, 36.f, -.5, .5);
+    float coarseValue = _synth->osc.coarsePitch;
+    float coarseKnobLevel = utility::Map(coarseValue, -36.f, 36.f, -.5, .5);
     char coarseText[16] = {};
     snprintf(coarseText, sizeof(coarseText), "%d st", (int32_t)round(coarseValue));
-    knob("PITCH", xoff, yoff, 0.5f, 0.0f, &coarseKnobLevel, coarseText);
-    coarseValue = utility::map(coarseKnobLevel, -.5f, .5f, -36.f, 36.f);
-    _synth->osc.coarsePitch.store(coarseValue);
+    Knob("PITCH", xoff, yoff, 0.5f, 0.0f, &coarseKnobLevel, coarseText);
+    coarseValue = utility::Map(coarseKnobLevel, -.5f, .5f, -36.f, 36.f);
+    _synth->osc.coarsePitch = coarseValue;
 
     xoff += (KNOB_WIDTH + pad);
-    float fineValue = _synth->osc.finePitch.load();
-    float fineKnobLevel = utility::map(fineValue, -100.f, 100.f, -.5f, .5f);
+    float fineValue = _synth->osc.finePitch;
+    float fineKnobLevel = utility::Map(fineValue, -100.f, 100.f, -.5f, .5f);
     char fineText[16] = {};
     snprintf(fineText, sizeof(fineText), "%3.1f cents", fineValue);
-    knob("FINE", xoff, yoff, 0.5f, 0.0f, &fineKnobLevel, fineText);
-    fineValue = utility::map(fineKnobLevel, -.5f, .5f, -100.f, 100.f);
-    _synth->osc.finePitch.store(fineValue);
+    Knob("FINE", xoff, yoff, 0.5f, 0.0f, &fineKnobLevel, fineText);
+    fineValue = utility::Map(fineKnobLevel, -.5f, .5f, -100.f, 100.f);
+    _synth->osc.finePitch = fineValue;
 }
 
-void UI::draw() {
+void UI::Draw() {
     ClearBackground(BG_GREY);
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
-    SDL_Log("Freq = %f", _synth->osc.getFrequency());
-    oscillator("OSC1", 100.f, 100.f);
+    Oscillator("OSC1", 100.f, 100.f);
 
     // TODO
     //
-    // coarse pitch int slider
-    // fine pitch int slider
-    // piano roll
+    // constant power panning
+    // oscillator label
     // waveform
-
+    // piano roll
 
     nvgEndFrame(_nvg);
 

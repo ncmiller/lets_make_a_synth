@@ -5,22 +5,27 @@
 
 struct Synth;
 
-typedef float (*OscillatorFn)(float phase);
-float sine(float phase);
-float square(float phase);
-float saw(float phase);
-float triangle(float phase);
-float whitenoise(float phase);
+namespace oscillator {
+
+typedef float (*Fn)(float phase);
+float Sine(float phase);
+float Square(float phase);
+float Saw(float phase);
+float Trianle(float phase);
+float Whitenoise(float phase);
+
+}
 
 class Oscillator {
 public:
-    bool init(Synth* synth);
-    void nextFn();
-    float getFrequency() const;
-    float getSample();
+    bool Init(Synth* synth);
+    void NextFn();
+    float GetFrequency() const;
+    void GetSample(float* left, float* right);
 
+    // Controllable from UI
     std::atomic<bool> enabled = true;
-    std::atomic<OscillatorFn> fn = sine;
+    std::atomic<oscillator::Fn> fn = oscillator::Sine;
     std::atomic<float> volume = 0.7f; // range [0, 1]
     std::atomic<float> pan = 0.0f; // range [-.5, .5]
     std::atomic<float> coarsePitch = 0.0f; // semitones, range [-36,36]

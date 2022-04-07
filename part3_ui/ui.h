@@ -12,36 +12,36 @@ struct NVGColor;
 
 class UI {
 public:
-    bool init(Synth* synth);
-    void draw();
-    void onControlEvent(SDL_Event event);
+    bool Init(Synth* synth);
+    void Draw();
+    void OnControlEvent(SDL_Event event);
 
 private:
     // Primitive drawing
-    void drawFilledCircle(float centerX, float centerY, float radius, NVGcolor color);
-    void drawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color);
-    void drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color);
+    void DrawFilledCircle(float centerX, float centerY, float radius, NVGcolor color);
+    void DrawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, NVGcolor color);
+    void DrawArc(float cx, float cy, float radius, float startDeg, float endDeg, float strokePx, NVGcolor color);
 
     // Synth widgets
-    void label(
+    void Label(
             const char* text,
             float x, float y,
             NVGcolor bgColor, NVGcolor fgColor,
             std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
-    void knob(
+    void Knob(
             const char* text,
             float x, float y,
             float zero, // zero point of knob, [0.0, 1.0]
             float defaultLev, // level to use on double-click, default level, relative to zero
             float* level, // current level of knob, relative to zero, range [-zero, 1-zero]
             const char* valuetext);
-    void oscillator(const char* name, float x, float y);
+    void Oscillator(const char* name, float x, float y);
 
     // Utility functions
-    bool mouseInRect(float x1, float y1, float x2, float y2);
-    bool activeExists();
-    bool isActive(size_t id);
-    bool isPreactive(size_t id);
+    bool MouseInRect(float x1, float y1, float x2, float y2);
+    bool ActiveExists();
+    bool IsActive(size_t id);
+    bool IsPreactive(size_t id);
 
     Synth* _synth = nullptr; // parent object
     NVGcontext* _nvg = nullptr;

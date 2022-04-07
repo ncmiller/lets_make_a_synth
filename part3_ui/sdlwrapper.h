@@ -8,7 +8,7 @@ public:
     SDLWrapper() = default;
     ~SDLWrapper();
 
-    bool init(
+    bool Init(
         const char* winTitle,
         uint32_t widthPx,
         uint32_t heightPx,
@@ -21,9 +21,9 @@ public:
     SDL_Window* _window = nullptr;
 
 private:
-    bool initWindow(const char* title, uint32_t widthPx, uint32_t heightPx);
-    bool initRenderer(uint32_t widthPx, uint32_t heightPx);
-    bool initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback, void* callbackUserdata);
+    bool InitWindow(const char* title, uint32_t widthPx, uint32_t heightPx);
+    bool InitRenderer(uint32_t widthPx, uint32_t heightPx);
+    bool InitAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback, void* callbackUserdata);
 
     SDL_AudioDeviceID _audioDevice;
 };

@@ -6,7 +6,7 @@
 
 #define RETURN_FALSE_IF_FALSE(expr) if ((!expr)) { return false; }
 
-bool SDLWrapper::init(
+bool SDLWrapper::Init(
         const char* winTitle,
         uint32_t widthPx,
         uint32_t heightPx,
@@ -14,13 +14,13 @@ bool SDLWrapper::init(
         uint16_t audioSamplesPerBuffer,
         SDL_AudioCallback audioCallback,
         void* callbackUserdata) {
-    RETURN_FALSE_IF_FALSE(initWindow(winTitle, widthPx, heightPx));
-    RETURN_FALSE_IF_FALSE(initRenderer(widthPx, heightPx));
-    RETURN_FALSE_IF_FALSE(initAudio(audioSampleRateHz, audioSamplesPerBuffer, audioCallback, callbackUserdata));
+    RETURN_FALSE_IF_FALSE(InitWindow(winTitle, widthPx, heightPx));
+    RETURN_FALSE_IF_FALSE(InitRenderer(widthPx, heightPx));
+    RETURN_FALSE_IF_FALSE(InitAudio(audioSampleRateHz, audioSamplesPerBuffer, audioCallback, callbackUserdata));
     return true;
 }
 
-bool SDLWrapper::initWindow(const char* title, uint32_t widthPx, uint32_t heightPx) {
+bool SDLWrapper::InitWindow(const char* title, uint32_t widthPx, uint32_t heightPx) {
     if (0 != SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
         return false;
@@ -56,7 +56,7 @@ bool SDLWrapper::initWindow(const char* title, uint32_t widthPx, uint32_t height
     return true;
 }
 
-bool SDLWrapper::initRenderer(uint32_t widthPx, uint32_t heightPx) {
+bool SDLWrapper::InitRenderer(uint32_t widthPx, uint32_t heightPx) {
     _gl_context = SDL_GL_CreateContext(_window);
     if (_gl_context == nullptr) {
         SDL_Log("Failed to create OpenGL context: %s", SDL_GetError());
@@ -77,7 +77,7 @@ bool SDLWrapper::initRenderer(uint32_t widthPx, uint32_t heightPx) {
     return true;
 }
 
-bool SDLWrapper::initAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback, void* callbackUserdata) {
+bool SDLWrapper::InitAudio(uint32_t sampleRateHz, uint16_t samplesPerBuffer, SDL_AudioCallback audioCallback, void* callbackUserdata) {
     // Initialize Audio
     SDL_AudioSpec desired = {};
     desired.freq = (int)sampleRateHz;

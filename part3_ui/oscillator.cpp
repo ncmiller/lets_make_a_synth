@@ -2,63 +2,87 @@
 #include "utility.h"
 #include <math.h>
 #include <stdlib.h>
+#include <SDL.h>
 
-float sine(float phase) {
+namespace oscillator {
+
+float Sine(float phase) {
     return sin(phase);
 }
 
-float square(float phase) {
+float Square(float phase) {
     return (phase < M_PI ? 1 : -1);
 }
 
-float saw(float phase) {
-    return utility::map(phase, 0.f, TwoPi, -1.f, 1.f);
+float Saw(float phase) {
+    return utility::Map(phase, 0.f, TWOPI, -1.f, 1.f);
 }
 
-float triangle(float phase) {
+float Triangle(float phase) {
     if (phase < M_PI) {
-        return utility::map(phase, 0.f, (float)M_PI, 1.f, -1.f);
+        return utility::Map(phase, 0.f, (float)M_PI, 1.f, -1.f);
     } else {
-        return utility::map(phase, (float)M_PI, TwoPi, -1.f, 1.f);
+        return utility::Map(phase, (float)M_PI, TWOPI, -1.f, 1.f);
     }
 }
 
-float whitenoise(float phase) {
+float Whitenoise(float phase) {
     // phase unused
-    return utility::map((float)rand(), 0.f, (float)RAND_MAX, -1.f, 1.f);
+    return utility::Map((float)rand(), 0.f, (float)RAND_MAX, -1.f, 1.f);
 }
 
-bool Oscillator::init(Synth* synth) {
+} // namespace oscillator
+
+bool Oscillator::Init(Synth* synth) {
     _synth = synth;
     return true;
 }
 
-void Oscillator::nextFn() {
-    if (fn == sine) {
-        fn = square;
-    } else if (fn == square) {
-        fn = triangle;
-    } else if (fn == triangle) {
-        fn = saw;
-    } else if (fn == saw) {
-        fn = whitenoise;
-    } else if (fn == whitenoise) {
-        fn = sine;
+void Oscillator::NextFn() {
+    if (fn == oscillator::Sine) {
+        fn = oscillator::Square;
+    } else if (fn == oscillator::Square) {
+        fn = oscillator::Triangle;
+    } else if (fn == oscillator::Triangle) {
+        fn = oscillator::Saw;
+    } else if (fn == oscillator::Saw) {
+        fn = oscillator::Whitenoise;
+    } else if (fn == oscillator::Whitenoise) {
+        fn = oscillator::Sine;
     }
 }
 
 // See this page for converting notes -> cents -> frequency
 // https://en.wikipedia.org/wiki/Cent_(music)
-float Oscillator::getFrequency() const {
+float Oscillator::GetFrequency() const {
     float cents = noteIndex * 100.0f;
     cents += (round(coarsePitch) * 100.0f);
     cents += finePitch;
     return A0Freq * pow(2.f, cents / 1200.f);
 }
 
-float Oscillator::getSample() {
+void Oscillator::GetSample(float* left, float* right) {
     float sample = fn.load()(_phase);
-    float dPhase = TwoPi * getFrequency() / SAMPLE_RATE_HZ;
-    _phase = fmodf(_phase + dPhase, TwoPi);
-    return (noteActive.load() ? sample : 0.0f);
+    // Update phase for next time
+    float dPhase = TWOPI * GetFrequency() / SAMPLE_RATE_HZ;
+    _phase = fmodf(_phase + dPhase, TWOPI);
+
+    if (!noteActive) {
+        *left = 0.0f;
+        *right = 0.0f;
+        return;
+    }
+
+    *left = sample;
+    *right = sample;
+
+    // volume
+    *left *= volume;
+    *right *= volume;
+
+    // pan
+    float leftWeight = utility::Map(pan, -.5f, .5f, 1.f, 0.f);
+    float rightWeight = 1.f - leftWeight;
+    *left *= leftWeight;
+    *right *= rightWeight;
 }
