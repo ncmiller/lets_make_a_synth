@@ -29,7 +29,18 @@ private:
             float x, float y,
             float fontsize,
             NVGcolor bgColor, NVGcolor fgColor,
+            int alignFlags = NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+    void RoundRectLabel(
+            const char* text,
+            float x, float y, // center of circular button
+            float fontsize,
+            NVGcolor bgColor, NVGcolor fgColor,
             std::optional<float> width = std::nullopt, std::optional<float> height = std::nullopt);
+    bool ArrowButton(
+            float x, float y, // center of button
+            float radius,
+            NVGcolor bgColor, NVGcolor fgColor,
+            bool isLeft);
     void Knob(
             const char* text,
             float x, float y,

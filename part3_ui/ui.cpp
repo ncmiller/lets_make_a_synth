@@ -24,10 +24,15 @@ constexpr float DegToRad(float degrees) {
 }
 
 static const char* DEFAULT_FONT = "../assets/fonts/Lato-Regular.ttf";
+static constexpr float PAD = 10.f;
 static constexpr float LABEL_HEIGHT = 20.f;
 static constexpr float KNOB_WIDTH = 50.f;
 static constexpr float KNOB_LABEL_GAP = 8.f;
 static constexpr float KNOB_HEIGHT = (KNOB_WIDTH + KNOB_LABEL_GAP + LABEL_HEIGHT);
+static constexpr float WAVEFORM_HEIGHT = 2.f * KNOB_HEIGHT + PAD;
+static constexpr float WAVEFORM_WIDTH = WAVEFORM_HEIGHT;
+
+static constexpr NVGcolor ALMOST_WHITE = RGBAtoColor(240, 240, 240, 255);
 static constexpr NVGcolor BG_GREY = RGBAtoColor(39,42,45,255);
 static constexpr NVGcolor OSC_ENABLED_GREY = RGBAtoColor(77,79,82,255);
 static constexpr NVGcolor KNOB_BG = BG_GREY;
@@ -127,7 +132,29 @@ void UI::DrawLine(float x1, float y1, float x2, float y2, float strokeWidthPx, N
     nvgStroke(_nvg);
 }
 
+// Align text horiz center at x, text vert top at y
 void UI::Label(
+        const char* text,
+        float x, float y,
+        float fontsize,
+        NVGcolor bgColor, NVGcolor fgColor,
+        int alignFlags) {
+    nvgBeginPath(_nvg);
+
+    // Get bounds of rendered text
+    float bounds[4] = {};
+    nvgFontSize(_nvg, fontsize);
+    nvgTextBounds(_nvg, 0, 0, text, NULL, bounds);
+    float textWidth = bounds[2] - bounds[0];
+    float textHeight = bounds[3] - bounds[1];
+
+    // Position text
+    nvgTextAlign(_nvg, alignFlags);
+    nvgFillColor(_nvg, fgColor);
+    nvgText(_nvg, x, y, text, NULL);
+}
+
+void UI::RoundRectLabel(
         const char* text,
         float x, float y,
         float fontsize,
@@ -236,7 +263,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     nvgRestore(_nvg);
 
     // Knob label at the bottom
-    Label(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, 12, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+    RoundRectLabel(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, 12, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
 
     // Overlay text of current value. Only visible if preactive or active.
     float overlayOpacity = 0.0f;
@@ -249,22 +276,47 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     bg.a = overlayOpacity;
     NVGcolor fg = WHITE;
     fg.a = overlayOpacity;
-    Label(valuetext, cx-r, cy-1.6f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
+    RoundRectLabel(valuetext, cx-r, cy-1.6f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
+}
+
+bool UI::ArrowButton(float x, float y, float radius, NVGcolor bgColor, NVGcolor fgColor, bool isLeft) {
+    // TODO - handle active logic
+
+    // Button
+    UI::DrawFilledCircle(x, y, radius, bgColor);
+
+    // Arrow
+    {
+        nvgSave(_nvg);
+
+        float xTranslate = (isLeft ? x - radius/2.f : x + radius/2.f);
+        nvgTranslate(_nvg, xTranslate, y);
+
+        float rotate1 = (isLeft ? 240.f : -240.f);
+        nvgRotate(_nvg, DegToRad(rotate1));
+        DrawLine(0.f, 0.f, 0.f, radius, 1.f, ALMOST_WHITE);
+
+        float rotate2 = (isLeft ? 60.f : -60.f);
+        nvgRotate(_nvg, DegToRad(rotate2));
+        DrawLine(0.f, 0.f, 0.f, radius, 1.f, ALMOST_WHITE);
+
+        nvgRestore(_nvg);
+    }
+
+    return false;
 }
 
 void UI::Oscillator(const char* name, float x, float y) {
     size_t id = ScopedId(_idStack, name).value();
 
-    float pad = 10.f; // between background and oscillator widgets
     float num_knobs = 4.f;
-    float rw = num_knobs * (pad + KNOB_WIDTH) + pad;
-    float rh = 2.f * pad + KNOB_HEIGHT;
+    float rw = PAD + (WAVEFORM_WIDTH + PAD) + num_knobs * (KNOB_WIDTH + PAD);
+    float rh = 2.f * PAD + WAVEFORM_HEIGHT;
 
-    Label(name, x - 12, y - 24, 14, TRANSPARENT, WHITE);
-
-    nvgBeginPath(_nvg);
+    RoundRectLabel(name, x - 12, y - 24, 14, TRANSPARENT, WHITE);
 
     // Oscillator background
+    nvgBeginPath(_nvg);
     nvgRoundedRect(_nvg, x, y, rw, rh, 5.f);
     nvgFillColor(_nvg, OSC_ENABLED_GREY);
     nvgStrokeWidth(_nvg, 2.f);
@@ -272,16 +324,54 @@ void UI::Oscillator(const char* name, float x, float y) {
     nvgFill(_nvg);
     nvgStroke(_nvg);
 
+    float xoff = x + PAD;
+    float yoff = y + PAD;
+
+    //-----------------------
+    // Oscillator selector
+    //-----------------------
+    bool waveformLeft = false;
+    bool waveformRight = false;
+    {
+        // Background
+        nvgBeginPath(_nvg);
+        nvgRoundedRect(_nvg, xoff, yoff, WAVEFORM_WIDTH, WAVEFORM_HEIGHT, 5.f);
+        nvgFillColor(_nvg, DARK_GREY);
+        nvgFill(_nvg);
+        nvgStroke(_nvg);
+
+        // Left/right selection buttons
+        float buttonRadius = 10.f;
+        float buttonOffset = PAD/3.f + buttonRadius;
+        float leftButtonCenterX = xoff + buttonOffset;
+        float rightButtonCenterX = xoff + WAVEFORM_WIDTH - PAD/3.f - buttonRadius;
+        float buttonCenterY = yoff + buttonOffset;
+        if (ArrowButton(leftButtonCenterX, buttonCenterY, buttonRadius, OSC_ENABLED_GREY, ALMOST_WHITE, true)) {
+            // TODO - handle left
+        }
+        if (ArrowButton(rightButtonCenterX, buttonCenterY, buttonRadius, OSC_ENABLED_GREY, ALMOST_WHITE, false)) {
+            // TODO - handle right
+        }
+
+        // Oscillator name
+        Label("Sine", xoff + WAVEFORM_WIDTH/2.f, buttonCenterY, 14, TRANSPARENT, ALMOST_WHITE);
+
+        // TODO - visualize oscillator waveform
+    }
+
+    xoff += (WAVEFORM_WIDTH + PAD);
+
+    //-----------------------
     // Knobs
-    float xoff = x + pad;
-    float yoff = y + pad;
+    //-----------------------
     float levelValue = _synth->osc.volume;
     char levelText[16] = {};
     snprintf(levelText, sizeof(levelText), "%3.1f%%", fabs(levelValue * 100.f));
     Knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
     _synth->osc.volume = levelValue;
 
-    xoff += (KNOB_WIDTH + pad);
+    xoff += (KNOB_WIDTH + PAD);
+
     float panValue = _synth->osc.pan;
     int left = (int)(round(100.f * utility::Map(panValue, -.5f, .5f, 1.0f, 0.0f)));
     int right = 100 - left;
@@ -290,7 +380,8 @@ void UI::Oscillator(const char* name, float x, float y) {
     Knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
     _synth->osc.pan = panValue;
 
-    xoff += (KNOB_WIDTH + pad);
+    xoff += (KNOB_WIDTH + PAD);
+
     float coarseValue = _synth->osc.coarsePitch;
     float coarseKnobLevel = utility::Map(coarseValue, -36.f, 36.f, -.5, .5);
     char coarseText[16] = {};
@@ -299,7 +390,8 @@ void UI::Oscillator(const char* name, float x, float y) {
     coarseValue = utility::Map(coarseKnobLevel, -.5f, .5f, -36.f, 36.f);
     _synth->osc.coarsePitch = coarseValue;
 
-    xoff += (KNOB_WIDTH + pad);
+    xoff += (KNOB_WIDTH + PAD);
+
     float fineValue = _synth->osc.finePitch;
     float fineKnobLevel = utility::Map(fineValue, -100.f, 100.f, -.5f, .5f);
     char fineText[16] = {};
@@ -318,9 +410,7 @@ void UI::Draw() {
 
     Oscillator("OSC A", 100.f, 100.f);
 
-    // TODO
-    //
-    // waveform
+    // TODO - Cleanup usage of RoundedRectLabel, use just Label
 
     nvgEndFrame(_nvg);
 }
