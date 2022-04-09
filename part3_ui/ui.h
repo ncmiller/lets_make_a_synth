@@ -7,6 +7,7 @@
 #include <vector>
 
 struct Synth;
+class Input;
 struct NVGcontext;
 struct NVGColor;
 
@@ -45,6 +46,7 @@ private:
     bool IsPreactive(size_t id);
 
     Synth* _synth = nullptr; // parent object
+    Input* _input = nullptr;
     NVGcontext* _nvg = nullptr;
     int _fontId = 0;
 

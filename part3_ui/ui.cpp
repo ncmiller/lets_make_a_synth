@@ -69,6 +69,7 @@ private:
 
 bool UI::Init(Synth* synth) {
     _synth = synth;
+    _input = &_synth->input;
     int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
     _nvg = nvgCreateGL3(flags);
     if (NULL == _nvg) {
@@ -86,8 +87,8 @@ bool UI::Init(Synth* synth) {
 }
 
 bool UI::MouseInRect(float x1, float y1, float x2, float y2) {
-    return ((_mouseX >= x1 && _mouseX <= x2) &&
-            (_mouseY >= y1 && _mouseY <= y2));
+    return ((_input->mouseX >= x1 && _input->mouseX <= x2) &&
+            (_input->mouseY >= y1 && _input->mouseY <= y2));
 }
 
 bool UI::IsActive(size_t id) {
@@ -100,28 +101,6 @@ bool UI::ActiveExists() {
 
 bool UI::IsPreactive(size_t id) {
     return (id == _preactiveId);
-}
-
-void UI::OnControlEvent(SDL_Event event) {
-    if (event.type == SDL_MOUSEBUTTONDOWN) {
-        _mouseButtonDown = true;
-        // TODO - remove, testing only
-        _synth->osc.noteActive = true;
-    } else if (event.type == SDL_MOUSEBUTTONUP) {
-        _mouseButtonUp = true;
-        uint32_t now = SDL_GetTicks();
-        uint32_t deltaMs = now - _mouseLastClick;
-        if (deltaMs < 250) {
-            _mouseDoubleClick = true;
-        }
-        _mouseLastClick = now;
-        _synth->osc.noteActive = false;
-    } else if (event.type == SDL_MOUSEMOTION) {
-        _mouseX = event.motion.x;
-        float newMouseY = event.motion.y;
-        _mouseYDelta = (newMouseY - _mouseY);
-        _mouseY = newMouseY;
-    }
 }
 
 void UI::DrawFilledCircle(float centerX, float centerY, float radius, NVGcolor color) {
@@ -182,7 +161,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     size_t id = ScopedId(_idStack, text).value();
 
     bool mouseInside = MouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
-    bool resetToDefault = IsActive(id) && _mouseDoubleClick;
+    bool resetToDefault = IsActive(id) && _input->mouseDoubleClick;
     if (!IsActive(id) && !IsPreactive(id)) {
         if (mouseInside && !ActiveExists()) {
             _preactiveId = id;
@@ -191,13 +170,13 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     if (!IsActive(id) && IsPreactive(id)) {
         if (!mouseInside) {
             _preactiveId = 0;
-        } else if (_mouseButtonDown) {
+        } else if (_input->mouseIsDown) {
             _activeId = id;
         }
     }
     if (IsActive(id)) {
         assert(IsPreactive(id));
-        if (_mouseButtonUp) {
+        if (_input->mouseIsUp) {
             _activeId = 0;
         }
     }
@@ -218,7 +197,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
         *level = levelToUse;
     } else if (IsActive(id)) {
         float pxToLevelScalar = 1.f / 150.f;
-        float newLevel = levelToUse - pxToLevelScalar * _mouseYDelta;
+        float newLevel = levelToUse - pxToLevelScalar * _input->mouseYDelta;
         newLevel = utility::Clamp(newLevel, -zero, 1.f - zero);
         levelToUse = newLevel;
         *level = levelToUse;
@@ -298,14 +277,14 @@ void UI::Oscillator(const char* name, float x, float y) {
     float yoff = y + pad;
     float levelValue = _synth->osc.volume;
     char levelText[16] = {};
-    snprintf(levelText, sizeof(levelText), "%3.1f%%", levelValue * 100.f);
+    snprintf(levelText, sizeof(levelText), "%3.1f%%", fabs(levelValue * 100.f));
     Knob("LEVEL", xoff, yoff, 0.f, 0.7f, &levelValue, levelText);
     _synth->osc.volume = levelValue;
 
     xoff += (KNOB_WIDTH + pad);
     float panValue = _synth->osc.pan;
     char panText[16] = {};
-    snprintf(panText, sizeof(panText), "%3.1f%%", panValue * 100.f);
+    snprintf(panText, sizeof(panText), "%3.1f%%", fabs(panValue * 100.f));
     Knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
     _synth->osc.pan = panValue;
 
@@ -331,20 +310,16 @@ void UI::Oscillator(const char* name, float x, float y) {
 void UI::Draw() {
     ClearBackground(BG_GREY);
 
+    _synth->osc.noteActive = _input->mouseIsDown;
+
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
     Oscillator("OSC A", 100.f, 100.f);
 
     // TODO
     //
+    // input state in input class
     // waveform
-    // piano roll
 
     nvgEndFrame(_nvg);
-
-    // Auto-clear mouse events now that we've drawn
-    _mouseButtonDown = false;
-    _mouseButtonUp = false;
-    _mouseYDelta = 0.f;
-    _mouseDoubleClick = false;
 }
