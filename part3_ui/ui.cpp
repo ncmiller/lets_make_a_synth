@@ -283,8 +283,10 @@ void UI::Oscillator(const char* name, float x, float y) {
 
     xoff += (KNOB_WIDTH + pad);
     float panValue = _synth->osc.pan;
+    int left = (int)(round(100.f * utility::Map(panValue, -.5f, .5f, 1.0f, 0.0f)));
+    int right = 100 - left;
     char panText[16] = {};
-    snprintf(panText, sizeof(panText), "%3.1f%%", fabs(panValue * 100.f));
+    snprintf(panText, sizeof(panText), "%dL/%dR", left, right);
     Knob("PAN", xoff, yoff, 0.5f, 0.0f, &panValue, panText);
     _synth->osc.pan = panValue;
 
@@ -318,7 +320,6 @@ void UI::Draw() {
 
     // TODO
     //
-    // input state in input class
     // waveform
 
     nvgEndFrame(_nvg);
