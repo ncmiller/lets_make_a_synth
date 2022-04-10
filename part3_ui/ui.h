@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <optional>
 #include <vector>
+#include <array>
 
 struct Synth;
 class Input;
@@ -15,7 +16,6 @@ class UI {
 public:
     bool Init(Synth* synth);
     void Draw();
-    void OnControlEvent(SDL_Event event);
 
 private:
     // Primitive drawing
@@ -52,6 +52,7 @@ private:
     // Utility functions
     bool MouseInRect(float x1, float y1, float x2, float y2);
     bool MouseInCircle(float x, float y, float radius);
+    void UpdateOscillatorVisualization();
     bool ActiveExists();
     bool IsActive(size_t id);
     bool IsPreactive(size_t id);
@@ -66,15 +67,7 @@ private:
     size_t _preactiveId = 0; // ID of widget about to be active (e.g. hovering)
     size_t _activeId = 0; // ID of widget that is active, being interacted with (e.g. mouse click)
 
-    // Mouse events
-    float _mouseX = 0.f;
-    float _mouseY = 0.f;
-    uint32_t _mouseLastClick = 0;
-
-    // Mouse events that are cleared at the end of every frame
-    bool _mouseButtonDown = false;
-    bool _mouseButtonUp = false;
-    float _mouseYDelta = 0.f;
-    bool _mouseDoubleClick = false;
+    // Cached visualization of selected oscillator
+    std::array<float, 256> _oscPoints = {};
 };
 

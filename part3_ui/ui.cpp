@@ -97,6 +97,9 @@ bool UI::Init(Synth* synth) {
     }
     nvgFontFaceId(_nvg, _fontId);
     _idStack.push_back(std::hash<const char*>{}("root"));
+
+    UpdateOscillatorVisualization();
+
     return true;
 }
 
@@ -160,7 +163,6 @@ void UI::Label(
     nvgText(_nvg, x, y, text, NULL);
 }
 
-// TODO: redesign so x/y is center of text and rounded rect
 void UI::RoundRectLabel(
         const char* text,
         float x, float y,
@@ -181,14 +183,14 @@ void UI::RoundRectLabel(
     float rw = (width ? width.value() : (rh + textWidth));
     float radius = rh / 2.f;
 
-    nvgRoundedRect(_nvg, x, y, rw, rh, radius);
+    nvgRoundedRect(_nvg, x - rw/2.f, y - rh/2.f, rw, rh, radius);
     nvgFillColor(_nvg, bgColor);
     nvgFill(_nvg);
 
     // Position text in middle of rounded rect
     nvgTextAlign(_nvg, NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER);
     nvgFillColor(_nvg, fgColor);
-    nvgText(_nvg, x + rw/2.f, y + rh/2.f, text, NULL);
+    nvgText(_nvg, x, y, text, NULL);
 }
 
 void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, float* level, const char* valuetext) {
@@ -270,7 +272,9 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     nvgRestore(_nvg);
 
     // Knob label at the bottom
-    RoundRectLabel(text, x, y + KNOB_WIDTH + KNOB_LABEL_GAP, 12, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
+    RoundRectLabel(text,
+            x + KNOB_WIDTH/2.f, y + KNOB_WIDTH + KNOB_LABEL_GAP + LABEL_HEIGHT/2.f,
+            12, KNOB_LABEL_BG, WHITE, KNOB_WIDTH, LABEL_HEIGHT);
 
     // Overlay text of current value. Only visible if preactive or active.
     float overlayOpacity = 0.0f;
@@ -283,7 +287,7 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     bg.a = overlayOpacity;
     NVGcolor fg = WHITE;
     fg.a = overlayOpacity;
-    RoundRectLabel(valuetext, cx-r, cy-1.6f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
+    RoundRectLabel(valuetext, cx, cy-1.2f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
 }
 
 bool UI::ArrowButton(float x, float y, float radius, bool isLeft) {
@@ -342,6 +346,13 @@ bool UI::ArrowButton(float x, float y, float radius, bool isLeft) {
     return pressed;
 }
 
+void UI::UpdateOscillatorVisualization() {
+    for (uint32_t i = 0; i < _oscPoints.size(); i++) {
+        float phase = i * TWOPI/_oscPoints.size();
+        _oscPoints[i] = _synth->osc.Fn(phase);
+    }
+}
+
 void UI::Oscillator(const char* name, float x, float y) {
     size_t id = ScopedId(_idStack, name).value();
 
@@ -386,15 +397,32 @@ void UI::Oscillator(const char* name, float x, float y) {
         float buttonCenterY = yoff + buttonOffset;
         if (ArrowButton(leftButtonCenterX, buttonCenterY, buttonRadius, true)) {
             _synth->osc.Prev();
+            UpdateOscillatorVisualization();
         }
         if (ArrowButton(rightButtonCenterX, buttonCenterY, buttonRadius, false)) {
             _synth->osc.Next();
+            UpdateOscillatorVisualization();
         }
 
         // Oscillator name
         Label(_synth->osc.GetName(), xoff + WAVEFORM_WIDTH/2.f, buttonCenterY, 14, ALMOST_WHITE);
 
-        // TODO - visualize oscillator waveform
+        // Waveform visualization
+        {
+            nvgSave(_nvg);
+            nvgTranslate(_nvg, xoff, yoff + WAVEFORM_HEIGHT/2.f + PAD);
+            nvgScale(_nvg, WAVEFORM_WIDTH, 0.7f * WAVEFORM_HEIGHT / 2.f);
+            nvgBeginPath(_nvg);
+            nvgMoveTo(_nvg, 0, _oscPoints[0]);
+            for (uint32_t i = 1; i < _oscPoints.size(); i++) {
+                nvgLineTo(_nvg, i * 1.f / _oscPoints.size(), _oscPoints[i]);
+            }
+            nvgRestore(_nvg);
+            nvgStrokeWidth(_nvg, 2.f);
+            nvgStrokeColor(_nvg, KNOB_ACTIVE_PURPLE);
+            nvgStroke(_nvg);
+
+        }
     }
 
     xoff += (WAVEFORM_WIDTH + PAD);
@@ -443,6 +471,7 @@ void UI::Draw() {
     ClearBackground(BG_GREY);
 
     // Set oscillator note based on key presses
+    // TODO - is there a better place for this?
     _synth->osc.noteActive = false;
     for (const auto& note : NOTES_MAP) {
         if (_input->IsKeyPressed(note.first)) {
@@ -452,8 +481,6 @@ void UI::Draw() {
     }
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
-
     Oscillator("OSC A", 100.f, 100.f);
-
     nvgEndFrame(_nvg);
 }

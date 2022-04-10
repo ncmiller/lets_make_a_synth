@@ -28,6 +28,7 @@ public:
     void Prev();
     void Next();
     const char* GetName() const { return _sources[_sourceIndex].name; }
+    float Fn(float phase) const { return _sources[_sourceIndex].fn(phase); }
     void GetSample(float* left, float* right);
 
     // Controllable from UI
