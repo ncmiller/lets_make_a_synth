@@ -20,11 +20,9 @@ void Input::PollEvents() {
                 _synth->running = false;
             }
             _keyIsPressed[key] = true;
-            SDL_Log("Key down: %s", SDL_GetKeyName(key));
         } else if (event.type == SDL_KEYUP) {
             SDL_Keycode key = event.key.keysym.sym;
             _keyIsPressed[key] = false;
-            SDL_Log("Key up: %s", SDL_GetKeyName(key));
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             mouseWentUp = true;
             mouseIsDown = false;

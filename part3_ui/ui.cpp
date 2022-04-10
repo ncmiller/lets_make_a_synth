@@ -44,6 +44,14 @@ static constexpr NVGcolor DARK_GREY = RGBAtoColor(25, 25, 25, 255);
 static constexpr NVGcolor WHITE = RGBAtoColor(255, 255, 255, 255);
 static constexpr NVGcolor TRANSPARENT = RGBAtoColor(0, 0, 0, 0);
 
+static constexpr std::array<std::pair<SDL_Keycode, uint8_t>, 13> NOTES_MAP = {{
+    // C3 to C4
+    { SDLK_a, 39 }, { SDLK_w, 40 }, { SDLK_s, 41 }, { SDLK_e, 42 },
+    { SDLK_d, 43 }, { SDLK_f, 44 }, { SDLK_t, 45 }, { SDLK_g, 46 },
+    { SDLK_y, 47 }, { SDLK_h, 48 }, { SDLK_u, 49 }, { SDLK_j, 50 },
+    { SDLK_k, 51 },
+}};
+
 void ClearBackground(NVGcolor color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -434,14 +442,18 @@ void UI::Oscillator(const char* name, float x, float y) {
 void UI::Draw() {
     ClearBackground(BG_GREY);
 
-    _synth->osc.noteActive = _input->mouseIsDown;
+    // Set oscillator note based on key presses
+    _synth->osc.noteActive = false;
+    for (const auto& note : NOTES_MAP) {
+        if (_input->IsKeyPressed(note.first)) {
+            _synth->osc.noteActive = true;
+            _synth->osc.noteIndex = note.second;
+        }
+    }
 
     nvgBeginFrame(_nvg, WINDOW_WIDTH, WINDOW_HEIGHT, 1.f);
 
     Oscillator("OSC A", 100.f, 100.f);
-
-    // TODO
-    // Notes from keyboard, not mouse click
 
     nvgEndFrame(_nvg);
 }

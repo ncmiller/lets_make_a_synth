@@ -37,7 +37,7 @@ public:
     std::atomic<float> coarsePitch = 0.0f; // semitones, range [-36,36]
     std::atomic<float> finePitch = 0.0f; // cents, range [-100,100]
     std::atomic<bool> noteActive = false; // whether note should play
-    std::atomic<uint8_t> noteIndex = 39; // C4, 0-based on 88-key piano, index 0 is note A0
+    std::atomic<uint8_t> noteIndex = 39; // C3, 0-based on 88-key piano, index 0 is note A1
 
 private:
     float GetFrequency() const;
