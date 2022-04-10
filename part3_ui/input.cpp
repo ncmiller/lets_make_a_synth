@@ -1,6 +1,5 @@
 #include "input.h"
 #include "synth.h"
-#include <SDL.h>
 
 void Input::PollEvents() {
     SDL_Event event;
@@ -14,10 +13,18 @@ void Input::PollEvents() {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             _synth->running = false;
-        } else if (event.key.keysym.sym == SDLK_ESCAPE) {
-            // TODO - sometimes we get here even though escape was not pressed
-            SDL_Log("Escape key");
-            _synth->running = false;
+        } else if (event.type == SDL_KEYDOWN) {
+            SDL_Keycode key = event.key.keysym.sym;
+            if (key == SDLK_ESCAPE) {
+                SDL_Log("Escape key");
+                _synth->running = false;
+            }
+            _keyIsPressed[key] = true;
+            SDL_Log("Key down: %s", SDL_GetKeyName(key));
+        } else if (event.type == SDL_KEYUP) {
+            SDL_Keycode key = event.key.keysym.sym;
+            _keyIsPressed[key] = false;
+            SDL_Log("Key up: %s", SDL_GetKeyName(key));
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             mouseWentUp = true;
             mouseIsDown = false;
@@ -37,4 +44,12 @@ void Input::PollEvents() {
             mouseY = event.motion.y;
         }
     }
+}
+
+bool Input::IsKeyPressed(SDL_Keycode key) const {
+    auto search = _keyIsPressed.find(key);
+    if (search != _keyIsPressed.end()) {
+        return search->second;
+    }
+    return false;
 }

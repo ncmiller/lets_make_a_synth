@@ -1,5 +1,8 @@
 #pragma once
 
+#include <SDL.h>
+#include <unordered_map>
+
 struct Synth;
 
 class Input {
@@ -9,6 +12,9 @@ public:
         return true;
     }
     void PollEvents();
+
+    // e.g. IsKeyPressed(SDLK_a)
+    bool IsKeyPressed(SDL_Keycode key) const;
 
     bool mouseIsDown = false;
     bool mouseIsUp = true;
@@ -24,4 +30,5 @@ public:
 private:
     Synth* _synth; // parent
     float _lastMouseUpMs = 0.f;
+    std::unordered_map<SDL_Keycode, bool> _keyIsPressed;
 };

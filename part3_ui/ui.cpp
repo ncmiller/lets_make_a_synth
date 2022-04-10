@@ -152,6 +152,7 @@ void UI::Label(
     nvgText(_nvg, x, y, text, NULL);
 }
 
+// TODO: redesign so x/y is center of text and rounded rect
 void UI::RoundRectLabel(
         const char* text,
         float x, float y,
