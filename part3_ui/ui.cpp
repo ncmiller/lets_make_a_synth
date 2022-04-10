@@ -39,6 +39,7 @@ static constexpr NVGcolor KNOB_BG = BG_GREY;
 static constexpr NVGcolor KNOB_ACTIVE_PURPLE = RGBAtoColor(164,137,248,255);
 static constexpr NVGcolor KNOB_INACTIVE_GREY = OSC_ENABLED_GREY;
 static constexpr NVGcolor KNOB_LABEL_BG = RGBAtoColor(63,66,69,255);
+static constexpr NVGcolor LIGHT_GREY = OSC_ENABLED_GREY;
 static constexpr NVGcolor DARK_GREY = RGBAtoColor(25, 25, 25, 255);
 static constexpr NVGcolor WHITE = RGBAtoColor(255, 255, 255, 255);
 static constexpr NVGcolor TRANSPARENT = RGBAtoColor(0, 0, 0, 0);
@@ -96,6 +97,12 @@ bool UI::MouseInRect(float x1, float y1, float x2, float y2) {
             (_input->mouseY >= y1 && _input->mouseY <= y2));
 }
 
+bool UI::MouseInCircle(float x, float y, float radius) {
+    float dx = fabs(x - _input->mouseX);
+    float dy = fabs(y - _input->mouseY);
+    return (dx*dx + dy*dy < radius*radius);
+}
+
 bool UI::IsActive(size_t id) {
     return (id == _activeId);
 }
@@ -137,20 +144,11 @@ void UI::Label(
         const char* text,
         float x, float y,
         float fontsize,
-        NVGcolor bgColor, NVGcolor fgColor,
+        NVGcolor color,
         int alignFlags) {
     nvgBeginPath(_nvg);
-
-    // Get bounds of rendered text
-    float bounds[4] = {};
-    nvgFontSize(_nvg, fontsize);
-    nvgTextBounds(_nvg, 0, 0, text, NULL, bounds);
-    float textWidth = bounds[2] - bounds[0];
-    float textHeight = bounds[3] - bounds[1];
-
-    // Position text
     nvgTextAlign(_nvg, alignFlags);
-    nvgFillColor(_nvg, fgColor);
+    nvgFillColor(_nvg, color);
     nvgText(_nvg, x, y, text, NULL);
 }
 
@@ -197,13 +195,13 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     if (!IsActive(id) && IsPreactive(id)) {
         if (!mouseInside) {
             _preactiveId = 0;
-        } else if (_input->mouseIsDown) {
+        } else if (_input->mouseWentDown) {
             _activeId = id;
         }
     }
     if (IsActive(id)) {
         assert(IsPreactive(id));
-        if (_input->mouseIsUp) {
+        if (_input->mouseWentUp) {
             _activeId = 0;
         }
     }
@@ -279,31 +277,60 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
     RoundRectLabel(valuetext, cx-r, cy-1.6f*r, 12, bg, fg, std::nullopt, LABEL_HEIGHT * 0.8f);
 }
 
-bool UI::ArrowButton(float x, float y, float radius, NVGcolor bgColor, NVGcolor fgColor, bool isLeft) {
-    // TODO - handle active logic
+bool UI::ArrowButton(float x, float y, float radius, bool isLeft) {
+    size_t id = ScopedId(_idStack, x + y + isLeft).value();
+    bool pressed = false;
+
+    bool mouseInside = MouseInCircle(x, y, radius);
+    if (!IsActive(id) && !IsPreactive(id)) {
+        if (mouseInside && !ActiveExists()) {
+            _preactiveId = id;
+        }
+    }
+    if (!IsActive(id) && IsPreactive(id)) {
+        if (!mouseInside) {
+            _preactiveId = 0;
+        } else if (_input->mouseWentDown) {
+            _activeId = id;
+        }
+    }
+    if (IsActive(id)) {
+        assert(IsPreactive(id));
+        if (!mouseInside) {
+            _activeId = 0;
+        } else if (_input->mouseWentUp) {
+            pressed = true;
+            _activeId = 0;
+        }
+    }
 
     // Button
+    NVGcolor bgColor = LIGHT_GREY;
+    bgColor.a = ((IsPreactive(id) || IsActive(id)) ? 1 : 0);
     UI::DrawFilledCircle(x, y, radius, bgColor);
 
     // Arrow
     {
         nvgSave(_nvg);
 
+        NVGcolor color = ALMOST_WHITE;
+        float stroke = (IsActive(id) ? 2 : 1);
+
         float xTranslate = (isLeft ? x - radius/2.f : x + radius/2.f);
         nvgTranslate(_nvg, xTranslate, y);
 
         float rotate1 = (isLeft ? 240.f : -240.f);
         nvgRotate(_nvg, DegToRad(rotate1));
-        DrawLine(0.f, 0.f, 0.f, radius, 1.f, ALMOST_WHITE);
+        DrawLine(0.f, 0.f, 0.f, radius, stroke, color);
 
         float rotate2 = (isLeft ? 60.f : -60.f);
         nvgRotate(_nvg, DegToRad(rotate2));
-        DrawLine(0.f, 0.f, 0.f, radius, 1.f, ALMOST_WHITE);
+        DrawLine(0.f, 0.f, 0.f, radius, stroke, color);
 
         nvgRestore(_nvg);
     }
 
-    return false;
+    return pressed;
 }
 
 void UI::Oscillator(const char* name, float x, float y) {
@@ -313,7 +340,7 @@ void UI::Oscillator(const char* name, float x, float y) {
     float rw = PAD + (WAVEFORM_WIDTH + PAD) + num_knobs * (KNOB_WIDTH + PAD);
     float rh = 2.f * PAD + WAVEFORM_HEIGHT;
 
-    RoundRectLabel(name, x - 12, y - 24, 14, TRANSPARENT, WHITE);
+    Label(name, x, y - 3, 14, WHITE, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
 
     // Oscillator background
     nvgBeginPath(_nvg);
@@ -333,6 +360,8 @@ void UI::Oscillator(const char* name, float x, float y) {
     bool waveformLeft = false;
     bool waveformRight = false;
     {
+        ScopedId(_idStack, 0).value();
+
         // Background
         nvgBeginPath(_nvg);
         nvgRoundedRect(_nvg, xoff, yoff, WAVEFORM_WIDTH, WAVEFORM_HEIGHT, 5.f);
@@ -346,15 +375,15 @@ void UI::Oscillator(const char* name, float x, float y) {
         float leftButtonCenterX = xoff + buttonOffset;
         float rightButtonCenterX = xoff + WAVEFORM_WIDTH - PAD/3.f - buttonRadius;
         float buttonCenterY = yoff + buttonOffset;
-        if (ArrowButton(leftButtonCenterX, buttonCenterY, buttonRadius, OSC_ENABLED_GREY, ALMOST_WHITE, true)) {
-            // TODO - handle left
+        if (ArrowButton(leftButtonCenterX, buttonCenterY, buttonRadius, true)) {
+            _synth->osc.Prev();
         }
-        if (ArrowButton(rightButtonCenterX, buttonCenterY, buttonRadius, OSC_ENABLED_GREY, ALMOST_WHITE, false)) {
-            // TODO - handle right
+        if (ArrowButton(rightButtonCenterX, buttonCenterY, buttonRadius, false)) {
+            _synth->osc.Next();
         }
 
         // Oscillator name
-        Label("Sine", xoff + WAVEFORM_WIDTH/2.f, buttonCenterY, 14, TRANSPARENT, ALMOST_WHITE);
+        Label(_synth->osc.GetName(), xoff + WAVEFORM_WIDTH/2.f, buttonCenterY, 14, ALMOST_WHITE);
 
         // TODO - visualize oscillator waveform
     }
@@ -410,7 +439,8 @@ void UI::Draw() {
 
     Oscillator("OSC A", 100.f, 100.f);
 
-    // TODO - Cleanup usage of RoundedRectLabel, use just Label
+    // TODO
+    // Notes from keyboard, not mouse click
 
     nvgEndFrame(_nvg);
 }

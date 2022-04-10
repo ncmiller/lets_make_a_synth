@@ -38,18 +38,12 @@ bool Oscillator::Init(Synth* synth) {
     return true;
 }
 
-void Oscillator::NextFn() {
-    if (fn == oscillator::Sine) {
-        fn = oscillator::Square;
-    } else if (fn == oscillator::Square) {
-        fn = oscillator::Triangle;
-    } else if (fn == oscillator::Triangle) {
-        fn = oscillator::Saw;
-    } else if (fn == oscillator::Saw) {
-        fn = oscillator::Whitenoise;
-    } else if (fn == oscillator::Whitenoise) {
-        fn = oscillator::Sine;
-    }
+void Oscillator::Prev() {
+    _sourceIndex = (_sourceIndex == 0 ? _sources.size() - 1: _sourceIndex - 1);
+}
+
+void Oscillator::Next() {
+    _sourceIndex = (_sourceIndex + 1) % _sources.size();
 }
 
 // See this page for converting notes -> cents -> frequency
@@ -62,7 +56,7 @@ float Oscillator::GetFrequency() const {
 }
 
 void Oscillator::GetSample(float* left, float* right) {
-    float sample = fn.load()(_phase);
+    float sample = _sources[_sourceIndex].fn(_phase);
 
     // Update phase for next time
     float dPhase = TWOPI * GetFrequency() / SAMPLE_RATE_HZ;
