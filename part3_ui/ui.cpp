@@ -2,9 +2,15 @@
 #include "ui.h"
 #include "utility.h"
 #include "synth.h"
+#ifdef IS_WASM_BUILD
+#include <GLES2/gl2.h>
+#include <nanovg.h>
+#define NANOVG_GLES2_IMPLEMENTATION
+#else
 #include <glad/glad.h>
 #include <nanovg.h>
 #define NANOVG_GL3_IMPLEMENTATION
+#endif
 #include <nanovg_gl.h>
 #include <nanovg_gl_utils.h>
 #include <math.h>
@@ -85,7 +91,11 @@ bool UI::Init(Synth* synth) {
     _synth = synth;
     _input = &_synth->input;
     int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
+#ifdef IS_WASM_BUILD
+    _nvg = nvgCreateGLES2(flags);
+#else
     _nvg = nvgCreateGL3(flags);
+#endif
     if (NULL == _nvg) {
         SDL_Log("Failed to create NVG Context");
         return false;

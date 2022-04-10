@@ -31,10 +31,17 @@ bool SDLWrapper::InitWindow(const char* title, uint32_t widthPx, uint32_t height
 #ifdef _DEBUG
     context_flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
 #endif
+
+#ifdef IS_WASM_BUILD
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, context_flags);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+#endif
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -47,7 +54,7 @@ bool SDLWrapper::InitWindow(const char* title, uint32_t widthPx, uint32_t height
         title,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (int)widthPx, (int)heightPx,
-        SDL_WINDOW_OPENGL
+        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI
     );
     if (_window == nullptr) {
         SDL_Log("Could not create window: %s", SDL_GetError());
