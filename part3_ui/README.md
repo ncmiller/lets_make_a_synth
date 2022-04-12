@@ -6,13 +6,12 @@ the oscillators and pitch-bending the frequency using mouse
 click-and-drag.
 
 In part 3, we will introduce a better UI framework that will allow us
-to create knobs, buttons, selectors, sliders, and more.
+to create knobs, buttons, selectors, sliders, and more. Having a good
+UI will make the synth more fun and interactive.
 
-It may seem early to start on the UI, but having a decent UI framework
-early on will pay dividends later, and it will make our synth more interactive
-and fun to play with.
+By the end of this part, we'll have an interactive UI that looks like this:
 
-However, if you're just not interested in UI at all, feel free to skip this part.
+![Part 3 UI](img/Part3UI.png)
 
 ## Planning
 
@@ -25,18 +24,18 @@ We'll need to build a UI that has the following:
 * The ability to write text to an arbitrary location in the window
 * The ability to draw primitive shapes, such as rectangles, lines, and cicles
 * A knob, for adjusting the volume level of the oscillator
-* Another knob, for adjusting the left/right pan
-* A value click-and-drag to control coarse-grained pitch (by semitones)
-* A value click-and-drag to control fine-grained pitch (less than one semitone)
-* A piano roll at the bottom, highlighting current tones that are being played
+* A knob to control the left/right pan
+* A knob to control coarse-grained pitch (by semitones)
+* A knob to control fine-grained pitch (less than one semitone)
 * A waveform plot with a waveform selector on top. Something like the
   selector in Vital synth
 
 ![Vital Waveform Selector](img/VitalWaveformSelector.png)
 
 I did a fair bit of research on immediate mode GUIs vs retained mode GUIs.
-Casey Muratori has an excellent, although biased, [video](https://www.youtube.com/watch?v=Z1qyvQsjK5Y&ab_channel=CaseyMuratori)
-explaining the difference between the two.
+Casey Muratori has an excellent [video](https://www.youtube.com/watch?v=Z1qyvQsjK5Y&ab_channel=CaseyMuratori)
+explaining the difference between the two if this is the first time you've
+heard those terms.
 
 After some back and forth, I decided to use an immediate mode GUI
 (or IMGUI, for short), for a couple of reasons:
@@ -59,48 +58,38 @@ for this synth project.
 I'm completely new to designing UI frameworks, so this could be a complete
 disaster. Let's go!
 
+_(Edit from the future: I'm done with code for this part, and the UI took me a
+lot longer than expected! But it was a fun journey and I learned a lot,
+so no regrets)._
+
 ## Refactor - Moving code out of main.cpp
 
 Currently, all of our code is in `main.cpp`. However, things are getting a bit
-messy there, so in preparation for our UI work, let's create some new files.
+messy there, so in preparation for our UI work, we'll introduce new files to
+add structure to our project.
 
-We'll start by creating files `oscillator.h` and `oscillator.cpp` that will contain an
-`Oscillator` class.
+| File | Description |
+| --- | --- |
+| `synth.h` | A struct containing all of the data for the entire synth application. |
+* `sdlwrapper.h/.cpp` | All of the boiler-plate SDL code to create a window initialize audio.
+  This is basically just an SDL wrapper
+  library that is agnostic of our application code. We call into the library,
+  but the library doesn't call into us. |
+| `input.h/.cpp` | Polls for input and keyboard events each frame, and tracks
+  state for various events ("mouseWentUp on this frame", "the A key was
+  pressed this frame"). The UI code will use this library to know when certain
+  input events happen. |
+| `audio.h/audio.cpp` | Contains the SDL audio callback functions. Most of the
+    audio processing code will happen in other modules, so this callback
+    uses those modules to get the latest audio samples. |
+| `oscillator.h/.cpp` | Contains the code that generates the
+    oscillator sound sources based on various parameters that the UI controls.  |
+| `utility.h/.cpp` | General-purpose utility functions used throughout. |
+| `ui.h/.cpp` | The user interface. Interacts closely with `input` and `oscillator`. |
+| `main.cpp` | Much smaller now, contains just the main loop and not much else.  |
 
-```cpp
-class Oscillator {
-public:
-    void nextFn();
-    double getSample(double t, double freqHz) const;
-
-private:
-    OscillatorFn _fn = sine;
-};
-```
-
-Similarly, we'll create `ui.h` and `ui.cpp`, to contain a `UI` class.
-
-```cpp
-class UI {
-public:
-    void init(SDL_Renderer* renderer) { _renderer = renderer; }
-    void drawCircle(int centerX, int centerY, int radius);
-    void drawWaveform(const Oscillator& osc, double freqHz, bool isPlaying);
-
-private:
-    SDL_Renderer* _renderer = nullptr;
-};
-```
-
-With these new classes, we can move a good bit of code out of `main.cpp`.
-After doing that, all that's left in `main.cpp` is:
-
-* SDL code for opening and closing the window, renderer, and audio device
-* SDL main loop
-* SDL event handling (mouse, keyboard)
-* The audio callback function
-
-In terms of refactoring, that should be good enough for now.
+This new structure will give us a better base to build upon for this a future
+parts.
 
 ## Libraries to help design a UI
 
@@ -128,94 +117,226 @@ So it makes sense at this point
 to completely scrap the old UI and render code, and to start from scratch
 (which is not a huge loss, since we didn't have much of a UI to begin with).
 
-## Setting up OpenGL and NanoVG
+The new libraries have been imported into the `third_party` directory at the
+root of the repo, and the new OpenGL setup code can be found in
+`sdlwrapper.cpp`.
 
-TODO
+## Label Widget
 
-## Text
+One of the most basic parts of any UI is text, so we'll need to have
+a label widget in our UI.
 
-One of the most basic parts of any UI is text, so let's see if we
-can add code that will render text at any position we want in the window.
-
-First, we need to add this snippet to `main.cpp` to initialize SDL_TTF:
+The NanoVG library we imported has pretty good support for rendering text,
+so we just need to pick a font and initialize it:
 
 ```cpp
-    if (0 != TTF_Init()) {
-        SDL_Log("TTF_Init failed, error: %s", TTF_GetError());
-        return -1;
+// ...
+static const char* DEFAULT_FONT = "../assets/fonts/Lato-Regular.ttf";
+// ...
+bool UI::Init(Synth* synth) {
+    // ...
+    int flags = NVG_STENCIL_STROKES | NVG_ANTIALIAS;
+    _nvg = nvgCreateGL3(flags);
+    _fontId = nvgCreateFont(_nvg, "default", DEFAULT_FONT);
+    nvgFontFaceId(_nvg, _fontId);
+    // ...
+}
+```
+
+Now we have everything we need to draw a label at an absolute x/y pixel
+location:
+
+```cpp
+// Align text horiz center at x, text vert top at y
+void UI::Label(
+        const char* text,
+        float x, float y,
+        float fontsize,
+        NVGcolor color,
+        int alignFlags) {
+    nvgBeginPath(_nvg);
+    nvgTextAlign(_nvg, alignFlags);
+    nvgFillColor(_nvg, color);
+    nvgText(_nvg, x, y, text, NULL);
+}
+```
+
+The `alignFlags` parameter is a way to tell NanoVG how to interpret the
+`x` and `y` parameters. The default flags are set to:
+
+```
+NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE
+```
+
+which tells NanoVG that (x, y) is the mid-point of the text, both vertically
+and horizontally. You can use other flags to left-align, top-align, etc.
+
+## Interactivity via IMGUI
+
+The label widget is great, but it's kind of boring. The user doesn't interact
+with it, so it's just kind of drawn to the screen each frame, and that's it.
+
+The rest of our widgets are going to require interactivity, so I wanted to
+explain the basic principles of how that is going to work.
+
+Overall, when `UI::Draw` gets called each frame, we will draw the entire UI,
+and each element will determine how to draw itself based on whether it is
+"preactive", or "active", or neither:
+
+* Active: The widget is currently be interacted with by the user (e.g. user
+  clicked on the widget).
+* Preactive: The widget is about to be interacted with (e.g. user is hovering
+ their mouse over the widget, but has not yet clicked it).
+
+The definition of what it means to be "active" or "preactive" will be the
+responsibility of each widget. For instance, a button widget would be
+preactive when the mouse is hovering over the button, then becomes active on
+a mouse down event, and stays active until they lift the mouse button, or they
+move the mouse outside of the button. The widget can then customize the way
+it's drawn, based on whether it is preactive or active (or neither), making
+the widget flexible and responsive to user input.
+
+At the `UI` level, there can be at most one preactive and active widget. So
+if a widget determines it's active, it will set itself as the active widget. In
+that sense, widgets can "steal" ownership of preactive/active from other widgets.
+
+In general, widgets should not need any widget-specific state. This keeps the
+widget simple and pure, which is in stark contrast to retained mode GUIs where the
+widget state has to be maintained via calls to `set_visible`, `set_opacity`,
+etc, which changes state variables internal to the widget. In our UI, we simply draw
+the widgets from scratch each frame - they literally don't exist until we draw
+them for that frame. So there's no frame-to-frame state to keep track of,
+other than which widget is active and which is preactive (which is state
+maintained outside of the widgets).
+
+This approach to UI, where each widget is drawn every frame, and the state
+inside the widget is minimized, is called Immediate Mode GUI (or IMGUI).
+
+### IMGUI Widget IDs
+
+For keeping track of which widget is active and preactive, we identify widgets using
+a "widget ID" - a `size_t` that uniquely identifies a specific widget
+instance.
+
+```cpp
+    size_t _preactiveId = 0; // ID of widget about to be active (e.g. hovering)
+    size_t _activeId = 0; // ID of widget that is active, being interacted with (e.g. mouse click)
+```
+
+These unique IDs help differentiate, e.g. one knob widget from another.
+
+We have a UI hierarchy that currently looks something like this:
+
+```
+UI
+    Oscillator
+        WaveformSelector
+            ArrowButton (left)
+                Arrow
+                Button
+            ArrowButton (right)
+            Label
+            WaveformVisualizer
+        Knob (level)
+        Knob (pan)
+        Knob (coarse pitch)
+        Knob (fine pitch)
+```
+
+Widget IDs are generated by hashing unique identifying information about
+widget instances (e.g. knob label is "PAN") combined with the hash of its
+ancestral widgets in the UI hierarchy. There is the concept of an "ID stack",
+which is simply a vector of IDs that is updated as we traverse the UI
+hierarchy each frame.
+
+To generate an ID, each widget uses the `ScopedId` RAII class. Widgets use
+this to get their ID, to determine if they are active or preactive:
+
+```cpp
+void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, float* level, const char* valuetext) {
+    size_t id = ScopedId(_idStack, text).value();
+    // ...
+```
+
+The `ScopedId` constructor generates the ID by combining the ID from
+the top the stack (which captures the context of the widget in the UI
+hierarchy), along with arbitrary data, and then pushes the ID onto the stack.
+When the object goes out of scope, the ID is automatically popped off the ID stack.
+
+```cpp
+// Helper class, make it easy to generate and push a new ID on the ID stack
+// in the current scope and automatically pop when leaving scope.
+template <typename T>
+class ScopedId {
+public:
+    ScopedId(std::vector<size_t>& idStack, const T& data) : _idStack(idStack) {
+        size_t seed = idStack.back();
+        size_t id = HashCombine(seed, std::hash<T>{}(data));
+        _idStack.push_back(id);
     }
+    ~ScopedId() {
+        _idStack.pop_back();
+    }
+    size_t value() const {
+        return _idStack.back();
+    }
+private:
+    std::vector<size_t>& _idStack;
+};
 ```
 
-Next, we'll need to load a font when the `UI` class initializes:
-
-```cpp
-void UI::init(Synth* synth) {
-    _synth = synth;
-    _renderer = _synth->renderer;
-    _font = TTF_OpenFont("../assets/fonts/Lato-Regular.ttf", _fontSize);
-}
-```
-
-We're also grabbing a pointer to the parent `Synth`, since currently
-the `drawWaveform` function requires data from the `Oscillator`, and other
-information like the frequency.
-
-Now we can create a function which will draw text at a location
-on the screen.
-
-```cpp
-void UI::drawText(const char* text, int x, int y) {
-    SDL_Surface* surface = TTF_RenderText_Blended(_font, text, WHITE);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
-    SDL_FreeSurface(surface);
-
-    int w = 0;
-    int h = 0;
-    SDL_QueryTexture(texture, NULL, NULL, &w, &h);
-    SDL_Rect rect = {x, y, w, h};
-    SDL_RenderCopy(_renderer, texture, NULL, &rect);
-    SDL_DestroyTexture(texture);
-}
-```
-
-The `SDL_ttf` library relies on the older `SDL_Surface` type, so we have to first
-render the text to a surface, then convert that surface to a texture. Then
-finally we can copy the texture to the renderer and cleanup. There are
-probably ways to optimize this code, but it's probably a little too early to
-be worrying about that. We're just trying to get some text on the screen.
-
-And finally, to test it out, let's add some text to the window in `UI::draw`:
-
-```cpp
-void UI::draw() {
-    // Set background
-    SDL_SetRenderDrawColor(_renderer, 25, 25, 25, 255);
-    SDL_RenderClear(_renderer);
-
-    drawText("Hello, World!", 10, 10);
-    drawWaveform();
-}
-```
-
-And our text is right there. Aw yeah.
-
-<img src="img/HelloWorld.png" alt="Hello, World" width="360">
-
-## Knob
+## Knob Widget
 
 Every synthesizer out there has some kind of knob. This is going to be
 a key piece of UI for us.
 
-Again, we'll draw inspiration from the design of the Vital synth and try
-to create a knob that looks something like this:
+We're basically going to try to recreate the knob design from the Vital synth:
 
 ![Vital Knob](img/VitalKnob.png)
 
-We'll need to figure out:
+I won't go into detail about how to draw the knob. It's not particularly
+interesting code. Just some calls to NanoVG functions to draw circles and
+lines.
 
-* how to draw the knob
-* how the user can interact with it
-* how the knob's value can be integrated with the synthesizer to control the sound
+The knob detects whether it is active/preactive/neither with the following
+code:
+
+```cpp
+    bool mouseInside = MouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
+    bool resetToDefault = IsActive(id) && _input->mouseDoubleClick;
+    if (!IsActive(id) && !IsPreactive(id)) {
+        if (mouseInside && !ActiveExists()) {
+            _preactiveId = id;
+        }
+    }
+    if (!IsActive(id) && IsPreactive(id)) {
+        if (!mouseInside) {
+            _preactiveId = 0;
+        } else if (_input->mouseWentDown) {
+            _activeId = id;
+        }
+    }
+    if (IsActive(id)) {
+        assert(IsPreactive(id));
+        if (_input->mouseWentUp) {
+            _activeId = 0;
+        }
+    }
+```
+
+It's basically a little state machine:
+
+* Idle -> Preactive: when mouse cursor is inside the knob and there's not another active widget
+* Preactive -> Idle: When the mouse cursor moves away
+* Preactive -> Active: When the mouse button is pressed down
+* Active -> Preactive: When the mouse button comes back up
+
+The widget remains active while the mouse button is down, and the mouse cursor
+can move outside the widget while remaining active. The user controls the knob
+level by clicking and dragging vertically.
+
+The knob widget itself doesn't know what the level value actually means - that
+is the responsibility of higher level code.
 
 ### Drawing the Knob
 
@@ -250,18 +371,17 @@ void UI::drawArc(
 }
 ```
 
-### User Interaction with the Knob
+## ArrowButton Widget
 
-### Integrating the Knob with the Synth
+## Oscillator Widget
 
-## Horizontal Selector
+## Keyboard controlled note input
 
-## Value Dragger
+## Volume level control
 
-## Volume level
+## Pitch control, coarse and fine
 
-## Stereo panning
-
+## Stereo panning control
 
 (linear vs constant power panning)
 
@@ -280,8 +400,3 @@ float theta = utility::Map(pan, -.5f, .5f, 0.f, (float)M_PI / 2.f);
 *right *= sin(theta);
 ```
 
-## Plot
-
-## Pitch transposition
-
-## Piano roll and keyboard input
