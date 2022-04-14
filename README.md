@@ -20,28 +20,21 @@ build/synth
 
 1. [Part 1:  Making a Sound](part1_make_a_sound)
 1. [Part 2:  Oscillators](part2_oscillators)
+1. [Part 3:  UI](part3_ui)
 
 # Future Parts
 
-## Part 3 - User Interface
-
-Sketch
-Fonts
-https://fonts.google.com/specimen/Lato
-Text
-Volume, Knob
-Waveform, Horizontal Selector
-Coarse and Fine Pitch, Value Drag
-
 ## Part 4 - Envelopes
-## Part 5 - LFOs
-## Part 6 - Wave Tables
+## Part 5 - Filters
+## Part 6 - LFOs
+## Part 7 - Wave Tables
 
-# Useful Reference
+# Useful References
 
 I found the following references useful while learning and researching for
 this project.
 
+1. Ear Level Engineering Blog: <https://www.earlevel.com/main/>
 1. Audio Programming Basics: <https://www.youtube.com/watch?v=boPEO2auJj4>
 1. Vital Synth: https://github.com/mtytel/vital
 1. SDL Tutorial: <https://lazyfoo.net/tutorials/SDL/>

@@ -29,7 +29,7 @@ private:
             float x, float y,
             float fontsize,
             NVGcolor color,
-            int alignFlags = NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+            int alignFlags = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     void RoundRectLabel(
             const char* text,
             float x, float y, // center of circular button

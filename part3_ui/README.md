@@ -71,24 +71,15 @@ add structure to our project.
 | File | Description |
 | --- | --- |
 | `synth.h` | A struct containing all of the data for the entire synth application. |
-* `sdlwrapper.h/.cpp` | All of the boiler-plate SDL code to create a window initialize audio.
-  This is basically just an SDL wrapper
-  library that is agnostic of our application code. We call into the library,
-  but the library doesn't call into us. |
-| `input.h/.cpp` | Polls for input and keyboard events each frame, and tracks
-  state for various events ("mouseWentUp on this frame", "the A key was
-  pressed this frame"). The UI code will use this library to know when certain
-  input events happen. |
-| `audio.h/audio.cpp` | Contains the SDL audio callback functions. Most of the
-    audio processing code will happen in other modules, so this callback
-    uses those modules to get the latest audio samples. |
-| `oscillator.h/.cpp` | Contains the code that generates the
-    oscillator sound sources based on various parameters that the UI controls.  |
+| `sdlwrapper.h/.cpp` | All of the boiler-plate SDL code to create a window and initialize audio.  This is basically just an SDL wrapper library that is agnostic of our application code. We call into the library, but the library doesn't call into us. |
+| `input.h/.cpp` | Polls for input and keyboard events each frame, and tracks state for various events ("mouseWentUp on this frame", "the A key was pressed this frame"). The UI code will use this library to know when certain input events happen. |
+| `audio.h/audio.cpp` | Contains the SDL audio callback function. Most of the audio processing code will happen in oscillator.cpp, so this callback just pulls the latest audio samples from the oscillator. |
+| `oscillator.h/.cpp` | Contains the code that generates the oscillator sound sources based on various parameters that the UI controls.  |
 | `utility.h/.cpp` | General-purpose utility functions used throughout. |
 | `ui.h/.cpp` | The user interface. Interacts closely with `input` and `oscillator`. |
 | `main.cpp` | Much smaller now, contains just the main loop and not much else.  |
 
-This new structure will give us a better base to build upon for this a future
+This new structure will give us a better base to build upon for this and future
 parts.
 
 ## Libraries to help design a UI
@@ -165,7 +156,7 @@ The `alignFlags` parameter is a way to tell NanoVG how to interpret the
 `x` and `y` parameters. The default flags are set to:
 
 ```
-NVG_ALIGN_MIDDLE | NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE
+NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE
 ```
 
 which tells NanoVG that (x, y) is the mid-point of the text, both vertically
@@ -176,17 +167,17 @@ and horizontally. You can use other flags to left-align, top-align, etc.
 The label widget is great, but it's kind of boring. The user doesn't interact
 with it, so it's just kind of drawn to the screen each frame, and that's it.
 
-The rest of our widgets are going to require interactivity, so I wanted to
-explain the basic principles of how that is going to work.
+Many of our widgets are going to require interactivity, so I wanted to
+explain the basic principles of how that works.
 
 Overall, when `UI::Draw` gets called each frame, we will draw the entire UI,
 and each element will determine how to draw itself based on whether it is
 "preactive", or "active", or neither:
 
-* Active: The widget is currently be interacted with by the user (e.g. user
-  clicked on the widget).
 * Preactive: The widget is about to be interacted with (e.g. user is hovering
  their mouse over the widget, but has not yet clicked it).
+* Active: The widget is currently be interacted with by the user (e.g. user
+  clicked on the widget).
 
 The definition of what it means to be "active" or "preactive" will be the
 responsibility of each widget. For instance, a button widget would be
@@ -203,14 +194,11 @@ that sense, widgets can "steal" ownership of preactive/active from other widgets
 In general, widgets should not need any widget-specific state. This keeps the
 widget simple and pure, which is in stark contrast to retained mode GUIs where the
 widget state has to be maintained via calls to `set_visible`, `set_opacity`,
-etc, which changes state variables internal to the widget. In our UI, we simply draw
-the widgets from scratch each frame - they literally don't exist until we draw
+etc, which changes state variables internal to the widget. In our UI, we
+create new widgets from scratch each frame - they literally don't exist until we create
 them for that frame. So there's no frame-to-frame state to keep track of,
 other than which widget is active and which is preactive (which is state
-maintained outside of the widgets).
-
-This approach to UI, where each widget is drawn every frame, and the state
-inside the widget is minimized, is called Immediate Mode GUI (or IMGUI).
+maintained outside of the widgets, see the next section on Widget IDs).
 
 ### IMGUI Widget IDs
 
@@ -246,7 +234,7 @@ UI
 Widget IDs are generated by hashing unique identifying information about
 widget instances (e.g. knob label is "PAN") combined with the hash of its
 ancestral widgets in the UI hierarchy. There is the concept of an "ID stack",
-which is simply a vector of IDs that is updated as we traverse the UI
+which is simply a `std::vector` of IDs that is updated as we traverse the UI
 hierarchy each frame.
 
 To generate an ID, each widget uses the `ScopedId` RAII class. Widgets use
@@ -260,7 +248,9 @@ void UI::Knob(const char* text, float x, float y, float zero, float defaultLev, 
 
 The `ScopedId` constructor generates the ID by combining the ID from
 the top the stack (which captures the context of the widget in the UI
-hierarchy), along with arbitrary data, and then pushes the ID onto the stack.
+hierarchy), along with a piece of identifying data from the widget instance
+(usually text),
+and then pushes the ID onto the stack.
 When the object goes out of scope, the ID is automatically popped off the ID stack.
 
 ```cpp
@@ -299,11 +289,10 @@ interesting code. Just some calls to NanoVG functions to draw circles and
 lines.
 
 The knob detects whether it is active/preactive/neither with the following
-code:
+logic:
 
 ```cpp
     bool mouseInside = MouseInRect(x, y, x+KNOB_WIDTH, y+KNOB_HEIGHT);
-    bool resetToDefault = IsActive(id) && _input->mouseDoubleClick;
     if (!IsActive(id) && !IsPreactive(id)) {
         if (mouseInside && !ActiveExists()) {
             _preactiveId = id;
@@ -324,7 +313,8 @@ code:
     }
 ```
 
-It's basically a little state machine:
+It's basically a little state machine, which starts in an Idle state (neither
+preactive nor active):
 
 * Idle -> Preactive: when mouse cursor is inside the knob and there's not another active widget
 * Preactive -> Idle: When the mouse cursor moves away
@@ -333,57 +323,64 @@ It's basically a little state machine:
 
 The widget remains active while the mouse button is down, and the mouse cursor
 can move outside the widget while remaining active. The user controls the knob
-level by clicking and dragging vertically.
+level by clicking and dragging vertically, up or down.
 
 The knob widget itself doesn't know what the level value actually means - that
-is the responsibility of higher level code.
+is the responsibility of higher level code. The code for drawing knobs is
+identical regardless of what the knob is controlling. The actual value being
+controlled (e.g. volume) is handled at a higher level, and is tied directly to
+the Oscillator that is going to use the value.
 
-### Drawing the Knob
-
-There are actually several different fundamental shapes we'll need to draw:
-
-* A filled circle (already done by `drawCircle`)
-* A thick arc, from about 7 o'clock to 5 o' clock, for the knob's range of position
-* A short thick line, for the visual indicator of the knob's position
-* A rounded rectangle with text in it, for the knob label
-
-First, we'll rename `drawCircle` to `drawFilledCircle`, since we'll soon be
-drawing non-filled circles.
-
-Next, let's try to draw an arc. This is kind of like drawing a partial
-non-filled circle. Also, we need to be able to specify the thickness in
-pixels.
-
-```cpp
-void UI::drawArc(
-        int centerX,
-        int centerY,
-        int radius,
-        int strokeWidth,
-        double startAngleRad,
-        double endAngleRad) {
-    SDL_SetRenderDrawColor(_renderer, 50, 205, 50, 255); // lime green
-    for (double angle = startAngleRad; angle < endAngleRad; angle += (M_PI / 360.0)) {
-        int px = (int)((double)radius * cos(angle));
-        int py = -1 * (int)((double)radius * sin(angle));
-        drawFilledCircle(centerX + px, centerY + py, strokeWidth);
-    }
-}
-```
-
-## ArrowButton Widget
-
-## Oscillator Widget
+The other widgets work more or less like the Label and Knob widgets, so
+I won't cover each one.
 
 ## Keyboard controlled note input
 
-## Volume level control
+A new feature for this part is the ability to control the note being played
+with the computer keyboard. In `ui.cpp`, a constexpr array is defined that maps
+the SDL keycode to a specific note index (where index 0 is the lowest note on
+an 88-key piano) that is used by Oscillator for determining what note should play.
+
+```cpp
+static constexpr std::array<std::pair<SDL_Keycode, uint8_t>, 13> NOTES_MAP = {{
+    // C3 to C4
+    { SDLK_a, 39 }, { SDLK_w, 40 }, { SDLK_s, 41 }, { SDLK_e, 42 },
+    { SDLK_d, 43 }, { SDLK_f, 44 }, { SDLK_t, 45 }, { SDLK_g, 46 },
+    { SDLK_y, 47 }, { SDLK_h, 48 }, { SDLK_u, 49 }, { SDLK_j, 50 },
+    { SDLK_k, 51 },
+}};
+```
 
 ## Pitch control, coarse and fine
 
+We have two knobs in the UI for controlling pitch - one for coarse-grained
+changes, which move in steps of semitones, and a second one for fine-grained
+changes, which can modulate +/- 100 cents (there are 100 cents in
+a semitone).
+
+The function that converts from the base note to the final frequency is:
+
+```cpp
+// See this page for converting notes -> cents -> frequency
+// https://en.wikipedia.org/wiki/Cent_(music)
+float Oscillator::GetFrequency() const {
+    float cents = noteIndex * 100.0f;
+    cents += (round(coarsePitch) * 100.0f);
+    cents += finePitch;
+    return A0Freq * pow(2.f, cents / 1200.f);
+}
+```
+
+Basically, we're computing the total number of cents, then we convert from
+cents to Hz.
+
 ## Stereo panning control
 
-(linear vs constant power panning)
+While implementing stereo panning, I had an interesting discovery. My first
+attempt at coding this used a simple linear panning function, where it's all
+left channel when the knob is on the left, 50/50 Left/Right when the knob is
+in the middle, and all right channel when the knob is to the right. Anything
+in between those is a linear interpolation.
 
 ```cpp
 // Linear panning
@@ -393,6 +390,17 @@ float rightWeight = 1.f - leftWeight;
 *right *= rightWeight;
 ```
 
+However, an interesting thing happens with the human ear, where when you have
+the knob in the middle position (50/50), it sounds quieter than when you have
+the knob at the extreme left or right. This results in a "hole" in the sound
+when it's in the middle.
+
+A solution for this is to use "constant power
+panning". Basically, it means that the total power across both channels
+remains constant. In math terms, we are looking for all points on the unit
+circle between theta = 0 through pi/2, where our left channel is the
+cos(theta) and our right channel is sin(theta). In code, it looks like this:
+
 ```cpp
 // Constant power panning
 float theta = utility::Map(pan, -.5f, .5f, 0.f, (float)M_PI / 2.f);
@@ -400,3 +408,26 @@ float theta = utility::Map(pan, -.5f, .5f, 0.f, (float)M_PI / 2.f);
 *right *= sin(theta);
 ```
 
+The call to `utility::Map` is converting from units of the knob, which is
+a number between -.5 and .5, and radians between 0 and pi/2.
+
+With this approach, the sound is much more consistent to the ear as you turn
+the knob from left to right, and there's no more "hole in the middle" effect.
+
+I learned all about constant power panning from this site: https://www.cs.cmu.edu/~music/icm-online/readings/panlaws/
+
+## Wrapping up
+
+In this part we:
+
+1. Re-architected code into different files and classes
+1. Switch to using the OpenGL renderer instead of the SDL renderer
+1. Added a custom UI using nanovg and IMGUI concepts
+1. Added interactive knobs to control oscillator pitch, volume, and panning
+1. Added a waveform selector to the UI
+1. Added note control from the computer keyboard
+
+If you want to demo the final program for this part in your web browser,
+click on the link below.
+
+<https://ncmiller.dev/wasm/synth_part3/>
